@@ -1,7 +1,7 @@
-# version 0.8.0 - kivy 1.9.0 - python 2.7.10
 
 '''
-ROTABOX
+
+ROTABOX                                           kivy 1.9.0 - python 2.7.10
 =======
     Rotabox is kivy widget with fully customizable 2D bounds that follow its
     rotation.
@@ -265,6 +265,8 @@ from kivy.properties import (NumericProperty, ReferenceListProperty,
                              AliasProperty, ObjectProperty)
 from math import radians, atan2, sin, cos
 from itertools import izip
+__author__ = 'unjuan'
+__version__ = '0.8.0'
 
 class Rotabox(Widget):
     '''(See module's documentation).'''
@@ -659,8 +661,8 @@ class Rotabox(Widget):
                           (widget.right, widget.top), (widget.x, widget.top)]
 
             # Second check (Filter individual points)
-            hot_points = [point for point in points
-                          if this_box[0] <= point[0] <= this_box[2] and
+            hot_points = [point for point in points if
+                          this_box[0] <= point[0] <= this_box[2] and
                           this_box[1] <= point[1] <= this_box[3]]
 
             # Third check (Fine check most probable points).

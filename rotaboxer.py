@@ -1,6 +1,7 @@
 # coding=utf-8
-# version 0.8.0 - kivy 1.9.0 - python 2.7.10
+
 '''
+                                                    kivy 1.9.0 - python 2.7.10
 ROTABOXER
 ____________________ RUN THE MODULE DIRECTLY TO USE ___________________________
 
@@ -68,10 +69,8 @@ from kivy.properties import ObjectProperty, ListProperty, StringProperty
 from kivy.uix.filechooser import FileChooserListView
 from kivy.uix.floatlayout import FloatLayout
 from kivy.uix.listview import ListItemButton
-
-
 __author__ = 'unjuan'
-__version__ = '0.8.0.0'
+__version__ = '0.8.0'
 
 
 class ScrollLabel(ScrollView):
@@ -433,8 +432,8 @@ class Editor(RelativeLayout):
                     self.keys[self.keys.index(self.curr_frame) - 1] \
                     if self.keys.index(self.curr_frame) > 0 \
                     else self.keys[-1]
-            self.sprite.image.source = ('atlas://' + self.filename +
-                                        '/' + self.curr_frame)
+            self.sprite.image.source = ('atlas://' + self.filename + '/'
+                                                   + self.curr_frame)
             for poly in self.dummy[self.curr_frame].itervalues():
                 for point in poly['btn_points']:
                     self.scat.add_widget(point)
@@ -463,7 +462,7 @@ class Editor(RelativeLayout):
         scrl_label.label.font_size = '18sp'
         scrl_label.label.markup = True
         scrl_label.text = '''
-{0}[size=22][b]Rotaboxer {4}[/b]{3}
+{0}[size=22][b]Rotaboxer  {4}[/b]{3}
 
 User's manual{1}
 
@@ -554,6 +553,9 @@ User's manual{1}
 [color=#9999ff]{2}[b][Clear][/b]{3}{1} button ({0}{2}C{3}{1} key):
     Cleans after the Paint mode.
 
+[color=#9999ff]{2}[b][Python/KVlang][/b]{3}{1} button ({0}{2}L{3}{1} key):
+    Select the outputed code's flavor.
+
 [color=#cc9966]{2}[b][Code to Clipboard][/b]{3}{1} button ({0}{2}Ctrl + C{3}{1} keys):
     Copies the resulting code to clipboard, to use in a project.
     {0}NOTE:{1} Image.source's path in the code will be relative to
@@ -638,59 +640,62 @@ User's manual{1}
     def hover(self, *args):
         pos = Window.mouse_pos
         if self.load_btn.collide_point(*pos):
-            self.board2.text = 'Open  image,  atlas  or  project  file.  [O]'
+            self.board2.text = 'Open image, atlas or project file. [O]'
             return True
         if self.save.collide_point(*pos):
-            self.board2.text = 'Save  current  project  to  a  project  file.\n' \
-                               'If  checked,  it  functions  as  a  quick  ' \
-                               'save  (no dialog)  [S].'
+            self.board2.text = 'Save current project to a project file.\n' \
+                               'If checked, it functions as a quick save ' \
+                               '(no dialog)  [S].'
             return True
         if self.help_btn.collide_point(*pos):
-            self.board2.text = 'Help  [F1]'
+            self.board2.text = 'Help [F1]'
             return True
         if self.prev.collide_point(*pos):
-            self.board2.text = "Navigate  through  an  atlas'  images.  [Left]"
+            self.board2.text = "Navigate through an atlas' images. [Left]"
             return True
         if self.next.collide_point(*pos):
-            self.board2.text = "Navigate  through  an  atlas'  images.  [Right]"
+            self.board2.text = "Navigate through an atlas' images. [Right]"
             return True
         if self.minus.collide_point(*pos):
-            self.board2.text = 'Zoom  out.  [Down]'
+            self.board2.text = 'Zoom out. [Down]'
             return True
         if self.plus.collide_point(*pos):
-            self.board2.text = 'Zoom  in.  [Up]'
+            self.board2.text = 'Zoom in. [Up]'
             return True
         if self.des_btn.collide_point(*pos):
-            self.board2.text = 'Next  point  will  start  a  new  polygon.  [D]'
+            self.board2.text = 'Next point will start a new polygon. [D]'
             return True
         if self.chk_btn.collide_point(*pos):
-            self.board2.text = 'Promote  the  selected  point  to  a  ' \
-                               'check-point  and  vice  versa.  [Space]'
+            self.board2.text = 'Promote the selected point to a ' \
+                               'check-point and vice versa. [Space]'
             return True
         if self.rem_btn.collide_point(*pos):
-            self.board2.text = 'Remove  the  selected  point.  [Delete]'
+            self.board2.text = 'Remove the selected point. [Delete]'
             return True
         if self.clear_pol.collide_point(*pos):
-            self.board2.text = 'Delete  the  selected  polygon.  [Ctrl] + [Delete]'
+            self.board2.text = 'Delete the selected polygon. [Ctrl] + [Delete]'
             return True
         if self.paint_btn.collide_point(*pos):
-            self.board2.text = 'Enable / Disable  Paint  mode.  [P]'
+            self.board2.text = 'Enable / Disable Paint mode. [P]'
             return True
         if self.clear_btn.collide_point(*pos):
-            self.board2.text = 'Clean  after  the  Paint  mode.  [C]'
+            self.board2.text = 'Clean after the Paint mode. [C]'
+            return True
+        if self.lang_btn.collide_point(*pos):
+            self.board2.text = 'Choose a flavor for the resulting code. [L]'
             return True
         if self.copy_btn.collide_point(*pos):
-            self.board2.text = 'Copy  the  resulting  code  to  clipboard,  ' \
-                               'to  use  in  a  project.  [Ctrl] + [C]'
+            self.board2.text = 'Copy the resulting code to clipboard, ' \
+                               'to use in a project. [Ctrl] + [C]'
             return True
         if self.paint_btn.state == 'down':
-            self.board2.text = ('Paint  on  the  image  to  test  the  '
-                                'collidable  areas.')
+            self.board2.text = ('Paint on the image to test the '
+                                'collidable areas.')
         else:
-            self.board2.text = ('Click  to  add,  select  or  move  a  point.  '
-                                'Right  click  to  move  canvas  or  on  '
-                                'point  for  context  menu.  '
-                                'Scroll  to  zoom.')
+            self.board2.text = ('Click to add, select or move a point. '
+                                'Right click to move canvas or on '
+                                'point for context menu. '
+                                'Scroll to zoom.')
 
     # noinspection PyArgumentList
     def draw(self):
@@ -950,7 +955,7 @@ User's manual{1}
                              file_types=['*.rbx'])
         content.ids.filechooser.path = self.last_dir
         content.text_input.text = (self.save_name.split('\\')[-1] or
-                                   self.filename.split('\\')[-1]) + '.rbx'
+                                   self.filename.split('\\')[-1] + '.rbx')
         self.popup = Popup(content=content, size_hint=(.8, .8),
                            title='Save project:', auto_dismiss=False)
         self.popup.open()
@@ -1122,6 +1127,11 @@ User's manual{1}
                 self.paint_btn.state = 'normal'
             else:
                 self.paint_btn.state = 'down'
+        if key == 108:  # L
+            if self.lang_btn.text == '           Python     >  >':
+                self.lang_btn.text = '           KVlang     >  >'
+            else:
+                self.lang_btn.text = '           Python     >  >'
         if key == 99:  # C
             if ['ctrl'] in args:
                 self.copy()
