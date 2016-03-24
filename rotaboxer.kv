@@ -1,0 +1,387 @@
+# version 0.8.0 - kivy 1.9.0 - python 2.7.10
+#:import listview kivy.uix.listview
+#:import listadapter kivy.adapters.listadapter
+#:import DarkButton rotaboxer.DarkButton
+#:import os os
+
+<Editor>:
+    sprite: sprite
+    board1: board1
+    board2: board2
+    load_btn: load_btn
+    save_btn: save_btn
+    save: save
+    chk_box: chk_box
+    help_btn: help_btn
+    prev: prev
+    next: next
+    minus: minus
+    plus: plus
+    des_btn: des_btn
+    chk_btn: chk_btn
+    rem_btn: rem_btn
+    clear_pol: clear_pol
+    paint_btn: paint_btn
+    clear_btn: clear_btn
+    lang_btn: lang_btn
+    copy_btn: copy_btn
+    scat: scat
+    grid: grid
+    FloatLayout:
+        id: grid
+        size_hint: 1, .8
+        pos_hint: {'center_x': .5, 'center_y': .5}
+        opacity: 0
+        canvas.before:
+            Rectangle:
+                pos: self.pos
+                size: self.size
+                texture: app.texture
+    ScatterPlane:
+        id: scat
+        scale_min: .1
+        scale_max: 4.
+        do_rotation:False
+        auto_bring_to_front: False
+        Sprite:
+            id: sprite
+            editor: root
+            size_hint: None, None
+            opacity: 0
+            canvas.after:
+                Color:
+                    rgba: .3, .15, .3, 1
+                Line:
+                    rectangle: self.x,self.y,self.width,self.height
+                    dash_offset: 5
+                    dash_length: 3
+    RelativeLayout:
+        BoxLayout:
+            size_hint: .98, None
+            height: 100
+            pos_hint: {'center_x': .5, 'top': .99}
+            orientation: 'vertical'
+            BoxLayout:
+                BoxLayout:
+                    Button:
+                        id: load_btn
+                        group: 'utils'
+                        background_color: .4, .3, .2, 1
+                        text: 'Open'
+                        on_release: root.load_dialog()
+                    Image:
+                        size_hint: .01, 1
+                        color: 0,0,0,0
+                    RelativeLayout:
+                        id: save
+                        size_hint: .7, 1
+                        Button:
+                            id: save_btn
+                            group: 'utils'
+                            background_color: .3, .3, .5, 1
+                            text: '      Save'
+                            on_release:
+                                if chk_box.active: root.save_proj()
+                                else: root.save_dialog()
+                            disabled: True
+                        CheckBox:
+                            id: chk_box
+                            size_hint_x: .3
+                            pos_hint: {'center_x': .2, 'center_y': .5}
+                    Image:
+                        size_hint: .01, 1
+                        color: 0,0,0,0
+                    Button:
+                        id: help_btn
+                        group: 'utils'
+                        size_hint: .4, 1
+                        background_color: .3, .3, .5, 1
+                        font_size: '20sp'
+                        text: '?'
+                        on_release: root.help()
+                    Image:
+                        size_hint: .01, 1
+                        color: 0,0,0,0
+                BoxLayout:
+                    size_hint: .75, 1
+                    Button:
+                        id: prev
+                        group: 'nav'
+                        size_hint: .2, 1
+                        background_color: .3, .3, .5, 1
+                        font_size: '30sp'
+                        text: '<'
+                        on_release: root.navigate(self.text)
+                        disabled: True
+                    Image:
+                        size_hint: .005, 1
+                        color: 0,0,0,0
+                    Button:
+                        id: next
+                        group: 'nav'
+                        size_hint: .2, 1
+                        background_color: .3, .3, .5, 1
+                        font_size: '30sp'
+                        text: '>'
+                        on_release: root.navigate(self.text)
+                        disabled: True
+                    Image:
+                        size_hint: .005, 1
+                        color: 0,0,0,0
+                    Button:
+                        id: minus
+                        group: 'utils'
+                        size_hint: .2, 1
+                        background_color: .3, .3, .5, 1
+                        font_size: '15sp'
+                        text: '□'
+                        on_release: root.zoom('minus')
+                        disabled: True
+                    Image:
+                        size_hint: .005, 1
+                        color: 0,0,0,0
+                    Button:
+                        id: plus
+                        group: 'utils'
+                        size_hint: .2, 1
+                        background_color: .3, .3, .5, 1
+                        font_size: '30sp'
+                        text: '□'
+                        on_release: root.zoom('plus')
+                        disabled: True
+            BoxLayout:
+                pos_hint: {'center_x': .5, 'top': .895}
+                Label:
+                    id: board1
+                    size_hint: .36, 1
+                    background_color: .9, 1, .9, .05
+                    color: 1, 1, 1, .5
+                    text_size: self.width, None
+                    height: self.texture_size[1]
+                    halign: 'center'
+                    text: '...'
+                Label:
+                    id: board2
+                    background_color: .9, 1, .9, .05
+                    color: 1, 1, 1, .5
+                    text_size: self.width, None
+                    height: self.texture_size[1]
+                    halign: 'center'
+                    text: 'Open an image file or a previous project...'
+        BoxLayout:
+            size_hint: .98, None
+            height: 100
+            pos_hint: {'center_x': .5, 'y': .01}
+            orientation: 'vertical'
+            BoxLayout:
+                Button:
+                    id: chk_btn
+                    group: 'edit'
+                    background_color: .3, .4, .3, 1
+                    text: 'Checkpoint'
+                    on_release: root.set_check_point()
+                    disabled: True
+                Image:
+                    size_hint: .01, 1
+                    color: 0,0,0,0
+                Button:
+                    id: des_btn
+                    group: 'edit'
+                    background_color: .3, .4, .3, 1
+                    text: 'Deselect'
+                    on_release: root.deselect_polygon()
+                    disabled: True
+                Image:
+                    size_hint: .01, 1
+                    color: 0,0,0,0
+                Button:
+                    id: rem_btn
+                    group: 'edit'
+                    background_color: .3, .4, .3, 1
+                    text: 'Remove point'
+                    on_release: root.remove_point()
+                    disabled: True
+                Image:
+                    size_hint: .01, 1
+                    color: 0,0,0,0
+                Button:
+                    id: clear_pol
+                    group: 'edit'
+                    background_color: .3, .4, .3, 1
+                    text: 'Remove polygon'
+                    on_release: root.confirm_clear()
+                    disabled: True
+            Image:
+                size_hint: 1, .05
+                color: 0,0,0,0
+            BoxLayout:
+                ToggleButton:
+                    id: paint_btn
+                    group: 'toggles'
+                    background_color: .3, .15, .3, 1
+                    text: 'Paint test'
+                    always_release: True
+                    disabled: True
+                Image:
+                    size_hint: .01, 1
+                    color: 0,0,0,0
+                Button:
+                    id: clear_btn
+                    group: 'utils'
+                    background_color: .3, .15, .3, 1
+                    text: 'Clear paint'
+                    on_release: root.clear()
+                    disabled: True
+                Image:
+                    size_hint: .01, 1
+                    color: 0,0,0,0
+                Button:
+                    id: lang_btn
+                    group: 'utils'
+                    text: '           python     >  >'
+                    background_color: .3, .3, .5, 1
+                    on_release:
+                        if self.text == '           python     >  >': self.text = '           kvlang     >  >'
+                        else: self.text = '           python     >  >'
+                    disabled: True
+                Image:
+                    size_hint: .01, 1
+                    color: 0,0,0,0
+                Button:
+                    id: copy_btn
+                    group: 'utils'
+                    text: '>    to Clipboard      '
+                    background_color: .4, .3, .2, 1
+                    on_release: root.copy();
+                    disabled: True
+
+<Button>:
+    always_release: False
+
+<Popup>:
+    separator_color: 1, .5, 1, 1
+
+<DarkButton>:
+    deselected_color: 1, .6, 1, .4
+    selected_color: self.deselected_color
+
+<LoadDialog>:
+    drives_list: drives_list
+    filechooser: filechooser
+    load_btn: load_btn
+    BoxLayout:
+        size: root.size
+        pos: root.pos
+        orientation: "vertical"
+        BoxLayout:
+            ListView:
+                id: drives_list
+                size_hint_x: 1
+                adapter:
+                    (listadapter.ListAdapter(data=root.get_win_drives(),
+                    selection_mode='single', allow_empty_selection=True,
+                    cls=DarkButton))
+                canvas.before:
+                    Color:
+                        rgba: .06, .08, .06, 1
+                    Rectangle:
+                        size: self.size
+                        pos: self.pos
+            FileChooserListViewX:
+                id: filechooser
+                size_hint_x: 10
+                filters: root.file_types
+                filename: os.path.split(self.selection[0])[1] if self.selection else []
+                canvas.before:
+                    Color:
+                        rgba: 0, 0, 0, 1
+                    Rectangle:
+                        size: self.size
+                        pos: self.pos
+        BoxLayout:
+            size_hint_y: None
+            height: '40dp'
+            Button:
+                background_color: .3, .3, .5, 1
+                text: "Cancel"
+                on_release: root.cancel()
+            Button:
+                id: load_btn
+                background_color: .3, .4, .3, 1
+                text: "Open"
+                on_release: root.load(filechooser.path, filechooser.filename)
+
+<SaveDialog>:
+    text_input: text_input
+    drives_list: drives_list
+    filechooser: filechooser
+    save_btn: save_btn
+    BoxLayout:
+        size: root.size
+        pos: root.pos
+        orientation: "vertical"
+        BoxLayout:
+            ListView:
+                id: drives_list
+                size_hint_x: 1
+                adapter:
+                    (listadapter.ListAdapter(data=root.get_win_drives(),
+                    selection_mode='single', allow_empty_selection=True,
+                    cls=DarkButton))
+                canvas.before:
+                    Color:
+                        rgba: .06, .08, .06, 1
+                    Rectangle:
+                        size: self.size
+                        pos: self.pos
+            FileChooserListViewX:
+                id: filechooser
+                size_hint_x: 10
+                filters: root.file_types
+                on_selection:
+                    if self.selection: text_input.text = os.path.split(self.selection[0])[1]
+                    else: text_input.text = ''
+                canvas.before:
+                    Color:
+                        rgba: 0, 0, 0, 1
+                    Rectangle:
+                        size: self.size
+                        pos: self.pos
+        TextInput:
+            id: text_input
+            size_hint_y: None
+            height: '30dp'
+            multiline: False
+            background_color: .7, .7, .7, 1
+        BoxLayout:
+            size_hint_y: None
+            height: '40dp'
+            Button:
+                background_color: .3, .3, .5, 1
+                text: "Cancel"
+                on_release: root.cancel()
+            Button:
+                id: save_btn
+                background_color: .3, .4, .3, 1
+                text: "Save"
+                on_release: root.save(filechooser.path, text_input.text)
+
+<ScrollLabel>
+    label: label
+    scroll_y: 0
+    canvas.before:
+        Color:
+            rgba: .009, .01, .009, 1
+        Rectangle:
+            size: self.size
+            pos: self.pos
+    Label:
+        id: label
+        text: root.text
+        text_size: root.width, None
+        size_hint_y: None
+        height: self.texture_size[1]
+        halign: 'left'
+        color: 1, .6, 1, .4
+        on_size:
+            if root.height > self .texture_size[1]: self.height = root.height
