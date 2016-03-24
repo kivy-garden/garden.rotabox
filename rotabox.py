@@ -383,7 +383,7 @@ class Rotabox(Widget):
 
         if self.draw_bounds:
             self.canvas.add(self.draw_color)
-            for pol in self.polygons:
+            for _ in self.polygons:
                 self.draw_lines.append(Line(close=True, dash_offset=3,
                                        dash_length=5))
             for line in self.draw_lines:
@@ -395,7 +395,7 @@ class Rotabox(Widget):
         # Adjust the widget's ratio if [self.image] or [self.ratio]
         try:
             self.ratio = self.image.image_ratio
-        except AttributeError as error:
+        except AttributeError:
             pass
         if self.ratio and self.height:
             w, h = self.size
@@ -407,7 +407,7 @@ class Rotabox(Widget):
         # Adjust the child's or image's size
         try:
             self.image.size = self.size
-        except AttributeError as error:
+        except AttributeError:
             self.children[0].size = self.size
 
         # Update widget's bounds
@@ -553,7 +553,7 @@ class Rotabox(Widget):
             pos = self.pos
             for pol in polygons:
                 pol.rel_pts = [[x + y for x, y in izip(point, pos)]
-                                 for point in pol.ref_pts]
+                                for point in pol.ref_pts]
             if not angle:
                 for pol in polygons:
                     pol.points = pol.rel_pts
@@ -567,7 +567,7 @@ class Rotabox(Widget):
             to_rotated = self.to_rotated
             for pol in polygons:
                 pol.points = [to_rotated(point, origin, angle, at, si, co)
-                               for point in pol.rel_pts]
+                              for point in pol.rel_pts]
         # The widget's bounds
         bounds = [point for pol in polygons for point in pol.points]
         self.box = self.calc_box(bounds)
@@ -586,7 +586,7 @@ class Rotabox(Widget):
         angle = (angle + arctan(dy, dx)) % 6.283
 
         return ((orig[0] + distance * cosine(angle)),
-               (orig[1] + distance * sine(angle)))
+                (orig[1] + distance * sine(angle)))
 
     @staticmethod
     def calc_box(bounds):
@@ -660,8 +660,8 @@ class Rotabox(Widget):
 
             # Second check (Filter individual points)
             hot_points = [point for point in points
-                          if this_box[0] <= point[0] <= this_box[2]
-                          and this_box[1] <= point[1] <= this_box[3]]
+                          if this_box[0] <= point[0] <= this_box[2] and
+                          this_box[1] <= point[1] <= this_box[3]]
 
             # Third check (Fine check most probable points).
             return self.collide_point(in_points=hot_points)
@@ -732,15 +732,15 @@ class Rotabox(Widget):
 
         try:
             for i in xrange(len(self.polygons)):
-                self.draw_lines[i].points=[n for point
-                                           in self.polygons[i].points
-                                           for n in point]
+                self.draw_lines[i].points = [n for point
+                                             in self.polygons[i].points
+                                             for n in point]
         except IndexError:
             pass
 
-#^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+# ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 '''THIS IS THE END OF THE ACTUAL MODULE. THE REST, IS JUST A USAGE EXAMPLE.'''
-#vvvvvvvvvvvvvvvvvvvvv (Run the module directly, to watch) vvvvvvvvvvvvvvvvvvv
+# vvvvvvvvvvvvvvvvvvvvv (Run the module directly, to watch) vvvvvvvvvvvvvvvvvvv
 
 if __name__ == '__main__':
     from kivy.config import Config
