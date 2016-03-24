@@ -39,8 +39,8 @@ app_config = {}
 try:
     with open('settings.json', 'r') as app_settings:
         app_config = json.load(app_settings)
-except (IOError, KeyError) as e:
-    print('on loading settings', e)
+except (IOError, KeyError) as err:
+    print('on loading settings', err)
     pass
 
 from kivy.config import Config
@@ -69,6 +69,11 @@ from kivy.uix.filechooser import FileChooserListView
 from kivy.uix.floatlayout import FloatLayout
 from kivy.uix.listview import ListItemButton
 
+
+__author__ = 'unjuan'
+__version__ = '0.8.0.0'
+
+
 class ScrollLabel(ScrollView):
     """ A scrolling label with translation and background color options
     """
@@ -83,10 +88,13 @@ def folder_sort(files, filesystem):
     """ Sorts the files and folders in the 'File Dialogs' popups.
     Used in the FileChooserListViewX class
     """
-    sorting = lambda item: item[0].upper() if type(item) == list \
-                                           else item.lower()
     return (sorted((f for f in files if filesystem.is_dir(f)), key=sorting) +
             sorted((f for f in files if not filesystem.is_dir(f)), key=sorting))
+
+
+def sorting(item):
+    return item[0].upper() if type(item) == list \
+        else item.lower()
 
 
 class FileChooserListViewX(FileChooserListView):
@@ -323,7 +331,7 @@ class Editor(RelativeLayout):
             self.curr_poly = self.dummy[self.curr_frame]['{}'.format(
                 str(len(self.dummy[self.curr_frame])))] = {}
             self.curr_poly['btn_points'] = [Point(self, self.mag, pos=(x, y),
-                                                            state='down')]
+                                                  state='down')]
             self.curr_poly['points'] = []
             self.curr_poly['check_points'] = []
             self.scat.add_widget(self.curr_poly['btn_points'][-1])
@@ -369,8 +377,8 @@ class Editor(RelativeLayout):
     def confirm_clear(self, *args):
         if self.curr_poly:
             self.warn('Warning!',
-                                'You are about to delete a polygon.\n'
-                                'Confirm?', self.clear_polygon)
+                      'You are about to delete a polygon.\n'
+                      'Confirm?', self.clear_polygon)
 
     def clear_polygon(self, *args):
         self.dismiss_popup()
@@ -425,8 +433,8 @@ class Editor(RelativeLayout):
                     self.keys[self.keys.index(self.curr_frame) - 1] \
                     if self.keys.index(self.curr_frame) > 0 \
                     else self.keys[-1]
-            self.sprite.image.source = ('atlas://' + self.filename + '/'
-                                                            + self.curr_frame)
+            self.sprite.image.source = ('atlas://' + self.filename +
+                                        '/' + self.curr_frame)
             for poly in self.dummy[self.curr_frame].itervalues():
                 for point in poly['btn_points']:
                     self.scat.add_widget(point)
@@ -436,7 +444,7 @@ class Editor(RelativeLayout):
             self.curr_poly = None
             self.draw()
             self.board1.text = (self.image + '\n('
-                                + str(self.keys.index(self.curr_frame)+ 1)
+                                + str(self.keys.index(self.curr_frame) + 1)
                                 + '  of  '
                                 + str(len(self.keys)) + '  frames)')
 
@@ -455,12 +463,12 @@ class Editor(RelativeLayout):
         scrl_label.label.font_size = '18sp'
         scrl_label.label.markup = True
         scrl_label.text = '''
-[color=#ffffff][size=22][b]Rotaboxer  v.1.0[/b][/size]
+{0}[size=22][b]Rotaboxer {4}[/b]{3}
 
-User's manual[/color]
+User's manual{1}
 
-[color=#ffffff][size=18]Description:[/size][/color]
-    Rotaboxer is an editing tool for the Rotabox[color=#ffffff]*[/color]  bounds.
+{0}[size=18]Description:{3}{1}
+    Rotaboxer is an editing tool for the Rotabox{0}*{1}  bounds.
     With an image as input, one can visually shape specific
     colliding bounds for it.
     The result is the code (a list or a dictionary) to be used by a
@@ -469,44 +477,44 @@ User's manual[/color]
     Rotaboxer lets you browse through the individual frames of
     a sequence and define different bounds for each one.
 
-[color=#ffffff][size=18]Controls:[/size][/color]
-    [color=#ffffff][size=22]Left mouse button:[/size][/color]
-    Click on the image, to [color=#ffffff]add a new point[/color].
+{0}[size=18]Controls:{3}{1}
+    {0}[size=22]Left mouse button:{3}{1}
+    Click on the image, to {0}add a new point{1}.
         Each new point is spawn connected to the currently
         selected point and next to it.
 
-    Click on a point to [color=#ffffff]select[/color] both the [color=#ffffff]point[/color] and the [color=#ffffff]polygon[/color] it
+    Click on a point to {0}select{1} both the {0}point{1} and the {0}polygon{1} it
         belongs to.
 
-    Drag a [color=#ffffff]point[/color] to [color=#ffffff]move[/color] it around.
+    Drag a {0}point{1} to {0}move{1} it around.
 
-    Drag on the image, while in [color=#ffffff]paint[/color] mode, to [color=#ffffff]test[/color] your bounds
+    Drag on the image, while in {0}paint{1} mode, to {0}test{1} your bounds
         by painting on the collidable areas.
 
-    [color=#ffffff][size=22]Right mouse button:[/size][/color]
-    Click on a [color=#ffffff]point[/color] to open its context [color=#ffffff]menu[/color].
+    {0}[size=22]Right mouse button:{3}{1}
+    Click on a {0}point{1} to open its context {0}menu{1}.
 
-    Drag to [color=#ffffff]position[/color] the [color=#ffffff]workspace[/color].
+    Drag to {0}position{1} the {0}workspace{1}.
 
-    [color=#ffffff][size=22]Mouse scroll:[/size][/color]
-    Scroll to [color=#ffffff]zoom[/color].
+    {0}[size=22]Mouse scroll:{3}{1}
+    Scroll to {0}zoom{1}.
 
-    [color=#ffffff][size=22]Buttons & Keys:[/size][/color]
-[color=#ffffff][size=18]Arrow keys:[/size][/color]
+    {0}[size=22]Buttons & Keys:{3}{1}
+{0}[size=18]Arrow keys:{3}{1}
     Move a point around, if one is selected.
     (Speed options when used with Shift or Control keys).
     Else, navigate or zoom (see below)
 
-[color=#cc9966][size=20][b][Open][/b][/size][/color] button ([color=#ffffff][size=20]O[/size][/color] key):
+[color=#cc9966]{2}[b][Open][/b]{3}{1} button ({0}{2}O{3}{1} key):
     Prompts to open an image (.png), an image atlas (.atlas),
     or a previously saved project file (.rbx).
 
-[color=#9999ff][size=20][b][□ Save][/b][/size][/color] button ([color=#ffffff][size=20]S[/size][/color] key):
+[color=#9999ff]{2}[b][□ Save][/b]{3}{1} button ({0}{2}S{3}{1} key):
     Prompts to save current project to a project file.
     If checked, it functions as a quick save (no dialog).
     (Keep the project file with its image, to be able to open it).
 
-    [color=#ffffff]Auto Save[/color]: If the user exits the editor without saving changes,
+    {0}Auto Save{1}: If the user exits the editor without saving changes,
     the project is automatically appended to the 'sessions.json'
     file, at the editor's location, with date and name added to it.
     So, if exited by mistake (not a crash), one can retrieve the
@@ -515,48 +523,49 @@ User's manual[/color]
     Note, that the file is not maintained by the program and its
     cleanup or disposal is at the user's discretion.
 
-[color=#9999ff][size=22][b][?][/b][/size][/color] button ([color=#ffffff][size=20]F1[/size][/color] key):
+[color=#9999ff][size=22][b][?][/b]{3}{1} button ({0}{2}F1{3}{1} key):
     Leads here.
 
-[color=#7272bf][size=24][b][<][>][/b][/size][/color] buttons ([color=#ffffff][size=20]Left-Right[/size][/color] keys):
+[color=#7272bf][size=24][b][<][>][/b]{3}{1} buttons ({0}{2}Left-Right{3}{1} keys):
     Navigate through an atlas' images.
 
-[color=#9999ff][size=18][□][/size][/color] [color=#7272bf][size=24][b][□][/b][/size][/color] buttons ([color=#ffffff][size=20]Up-Down[/size][/color] keys):
+[color=#9999ff][size=18][□]{3}{1} [color=#7272bf][size=24][b][□][/b]{3}{1} buttons ({0}{2}Up-Down{3}{1} keys):
     Zoom.
 
-[color=#729972][size=20][b][Deselect][/b][/size][/color] button ([color=#ffffff][size=20]D[/size][/color] key):
+[color=#729972]{2}[b][Deselect][/b]{3}{1} button ({0}{2}D{3}{1} key):
     Each new point is automatically a part of a polygon.
     This button deselects the current polygon, so the next new
     point will start a new one.
 
-[color=#729972][size=20][b][Check-point][/b][/size][/color] button ([color=#ffffff][size=20]Space[/size][/color] key):
+[color=#729972]{2}[b][Check-point][/b]{3}{1} button ({0}{2}Space{3}{1} key):
     Makes the selected point one of the collision check-points
     for its container polygon.
 
-[color=#729972][size=20][b][Remove point][/b][/size][/color] button ([color=#ffffff][size=20]Delete[/size][/color] key):
+[color=#729972]{2}[b][Remove point][/b]{3}{1} button ({0}{2}Delete{3}{1} key):
     Deletes the selected point.
 
-[color=#729972][size=20][b][Delete polygon][/b][/size][/color] button ([color=#ffffff][size=20]Ctrl + Delete[/size][/color] keys):
+[color=#729972]{2}[b][Delete polygon][/b]{3}{1} button ({0}{2}Ctrl + Delete{3}{1} keys):
     Deletes the polygon that contains the selected point.
 
-[color=#ff99ff][size=20][b][Paint][/b][/size][/color] button ([color=#ffffff][size=20]P[/size][/color] key):
+[color=#ff99ff]{2}[b][Paint][/b]{3}{1} button ({0}{2}P{3}{1} key):
     Enables mouse painting over the bounded areas, to test
     collision detection. A testing tool.
 
-[color=#9999ff][size=20][b][Clear][/b][/size][/color] button ([color=#ffffff][size=20]C[/size][/color] key):
+[color=#9999ff]{2}[b][Clear][/b]{3}{1} button ({0}{2}C{3}{1} key):
     Cleans after the Paint mode.
 
-[color=#cc9966][size=20][b][Code to Clipboard][/b][/size][/color] button ([color=#ffffff][size=20]Ctrl + C[/size][/color] keys):
+[color=#cc9966]{2}[b][Code to Clipboard][/b]{3}{1} button ({0}{2}Ctrl + C{3}{1} keys):
     Copies the resulting code to clipboard, to use in a project.
-    [color=#ffffff]NOTE:[/color] Image.source's path in the code will be relative to
+    {0}NOTE:{1} Image.source's path in the code will be relative to
     where Rotaboxer is (if in the same drive).
 
      ____________________________________________________________________________
-  [color=#ffffff]*[/color] Rotabox is a kivy widget, that can have rotatable, custom
+  {0}*{1} Rotabox is a kivy widget, that can have rotatable, custom
     shaped, animated colliding bounds.
     To understand the concept of the Rotabox collision detection,
     you can refer to its module's documentation.
-        '''
+        '''.format('[color=#ffffff]', '[/color]', '[size=20]', '[/size]',
+                   __version__)
         content.add_widget(scrl_label)
 
         ok_btn = Button(background_color=(.3, .4, .3, 1), size_hint=(1, .1),
@@ -565,7 +574,7 @@ User's manual[/color]
         content.add_widget(ok_btn)
 
         self.popup = Popup(title_align='center', content=content,
-                                size_hint=(1, 1))
+                           size_hint=(1, 1))
         self.popup.title = 'Help'
         self.popup.open()
         with self.popup.content.canvas.before:
@@ -582,11 +591,11 @@ User's manual[/color]
             sw = self.sprite.width
             sh = self.sprite.height
             self.sprite.bounds = [[[(round(float(pt[0]) / sw, 3),
-                                         round(float(pt[1]) / sh, 3))
-                                         for pt in poly['points']],
-                                                   poly['check_points']]
-                                         for poly in self.dummy[
-                                             self.curr_frame].itervalues()]
+                                     round(float(pt[1]) / sh, 3))
+                                    for pt in poly['points']],
+                                   poly['check_points']]
+                                  for poly
+                                  in self.dummy[self.curr_frame].itervalues()]
             self.sprite.custom_bounds = True
             for entry in self.ids:
                 if hasattr(self.ids[entry], 'group'):
@@ -633,8 +642,8 @@ User's manual[/color]
             return True
         if self.save.collide_point(*pos):
             self.board2.text = 'Save  current  project  to  a  project  file.\n' \
-                        'If  checked,  it  functions  as  a  quick  save  ' \
-                        '(no dialog)  [S].'
+                               'If  checked,  it  functions  as  a  quick  ' \
+                               'save  (no dialog)  [S].'
             return True
         if self.help_btn.collide_point(*pos):
             self.board2.text = 'Help  [F1]'
@@ -656,7 +665,7 @@ User's manual[/color]
             return True
         if self.chk_btn.collide_point(*pos):
             self.board2.text = 'Promote  the  selected  point  to  a  ' \
-                              'check-point  and  vice  versa.  [Space]'
+                               'check-point  and  vice  versa.  [Space]'
             return True
         if self.rem_btn.collide_point(*pos):
             self.board2.text = 'Remove  the  selected  point.  [Delete]'
@@ -672,16 +681,16 @@ User's manual[/color]
             return True
         if self.copy_btn.collide_point(*pos):
             self.board2.text = 'Copy  the  resulting  code  to  clipboard,  ' \
-                              'to  use  in  a  project.  [Ctrl] + [C]'
+                               'to  use  in  a  project.  [Ctrl] + [C]'
             return True
         if self.paint_btn.state == 'down':
             self.board2.text = ('Paint  on  the  image  to  test  the  '
-                               'collidable  areas.')
+                                'collidable  areas.')
         else:
             self.board2.text = ('Click  to  add,  select  or  move  a  point.  '
-                               'Right  click  to  move  canvas  or  on  point  '
-                               'for  context  menu.  '
-                               'Scroll  to  zoom.')
+                                'Right  click  to  move  canvas  or  on  '
+                                'point  for  context  menu.  '
+                                'Scroll  to  zoom.')
 
     # noinspection PyArgumentList
     def draw(self):
@@ -774,8 +783,9 @@ User's manual[/color]
     def load_img(self, filename, path, source=None):
         self.dismiss_popup()
         filename = os.path.join(path, filename)
-        self.filename = filename.replace('.png', '').replace('.atlas', ''
-                                                        ).replace('.rbx', '')
+        self.filename = filename.replace('.png',
+                                         '').replace('.atlas',
+                                                     '').replace('.rbx', '')
         if source:
             filename = filename.replace(filename.split('\\')[-1], source)
         self.image = filename.split('\\')[-1]
@@ -819,9 +829,9 @@ User's manual[/color]
 
         if self.atlas_source:
             self.board1.text += ('\n('
-                                + str(self.keys.index(self.curr_frame)+ 1)
-                                + '  of  '
-                                + str(len(self.keys)) + '  frames)')
+                                 + str(self.keys.index(self.curr_frame) + 1)
+                                 + '  of  '
+                                 + str(len(self.keys)) + '  frames)')
 
     def load_proj(self, filename, path):
         source = os.path.join(path, filename)
@@ -864,7 +874,7 @@ User's manual[/color]
                                      self.sprite.width, 3),
                                round(float(point.center_y - self.sprite.y) /
                                      self.sprite.height, 3))
-                               for point in poly['btn_points']]
+                              for point in poly['btn_points']]
 
     def write(self):
         py = self.lang_btn.text.lstrip().startswith('py')
@@ -937,12 +947,12 @@ User's manual[/color]
         if self.popup:
             self.dismiss_popup()
         content = SaveDialog(save=self.save_check, cancel=self.dismiss_popup,
-                                file_types=['*.rbx'])
+                             file_types=['*.rbx'])
         content.ids.filechooser.path = self.last_dir
-        content.text_input.text = self.save_name.split('\\')[-1] or \
-                                  self.filename.split('\\')[-1] + '.rbx'
+        content.text_input.text = (self.save_name.split('\\')[-1] or
+                                   self.filename.split('\\')[-1]) + '.rbx'
         self.popup = Popup(content=content, size_hint=(.8, .8),
-                                title='Save project:', auto_dismiss=False)
+                           title='Save project:', auto_dismiss=False)
         self.popup.open()
 
     def save_check(self, path, filename):
@@ -955,7 +965,7 @@ User's manual[/color]
             if os.path.isfile(self.save_name):
                 self.dismiss_popup()
                 self.warn('Warning!', 'Filename already exists.\n'
-                                        'Overwrite?', self.save_proj)
+                          'Overwrite?', self.save_proj)
                 return
             self.save_proj()
         self.dismiss_popup()
@@ -988,7 +998,8 @@ User's manual[/color]
         project.update(self.dummy)
         try:
             with open('sessions.json', 'a') as proj:
-                out = json.dumps(project, proj, separators=(',',':'), sort_keys=True)
+                out = json.dumps(project, proj, separators=(',', ':'),
+                                 sort_keys=True)
                 proj.write(out + '\n')
         except IOError as e:
             print('On saving:', e)
@@ -1012,19 +1023,19 @@ User's manual[/color]
         try:
             for entry in self.ids:
                 widg = self.ids[entry]
-                if (isinstance(widg, (Button, ScrollLabel))
-                            and widg.collide_point(*touch.pos))\
-                    or ((entry == 'save_btn' or entry == 'chk_box')
-                        and widg.collide_point(*widg.to_widget(*touch.pos))):
+                if (isinstance(widg, (Button, ScrollLabel)) and
+                        widg.collide_point(*touch.pos))\
+                    or ((entry == 'save_btn' or entry == 'chk_box') and
+                            widg.collide_point(*widg.to_widget(*touch.pos))):
                     if mouse_btn != 'right':
                         super(Editor, self).on_touch_down(touch)
                         self.update()
                     return True
             pos = self.scat.to_widget(*touch.pos)
             for child in self.scat.children:
-                if (isinstance(child, ToggleButton)
-                        and child.collide_point(*pos)
-                        and self.paint_btn.state != 'down'):
+                if (isinstance(child, ToggleButton) and
+                        child.collide_point(*pos) and
+                        self.paint_btn.state != 'down'):
                     super(Editor, self).on_touch_down(touch)
                     if mouse_btn == 'right':
                         child.pop()
@@ -1077,9 +1088,9 @@ User's manual[/color]
                                     self.popup.content.filechooser.selection)
                 elif self.popup.title.startswith('Save'):
                     self.save_check(self.popup.content.filechooser.path,
-                                        self.popup.content.text_input.text)
+                                    self.popup.content.text_input.text)
                 elif self.popup.title.startswith('Image'):
-                                self.dismiss_popup()
+                    self.dismiss_popup()
                 else:
                     for child in self.popup.content.children:
                         if isinstance(child, Label):
@@ -1093,8 +1104,10 @@ User's manual[/color]
         if key == 111:  # O
             self.load_dialog()
         if key == 115:  # S
-            if self.chk_box.active: self.save_proj()
-            else: self.save_dialog()
+            if self.chk_box.active:
+                self.save_proj()
+            else:
+                self.save_dialog()
         if key == 100:  # D
             self.deselect_polygon()
         if key == 32 and self.curr_index:  # Space
@@ -1193,8 +1206,8 @@ User's manual[/color]
 
         content.add_widget(buttons)
         self.popup = Popup(title_align='center', content=content,
-                                title_color=([1, .1, .1, 1]),
-                                size_hint=(.5, .25))
+                           title_color=([1, .1, .1, 1]),
+                           size_hint=(.5, .25))
         self.popup.title = title
         self.popup.open()
 
