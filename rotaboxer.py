@@ -69,6 +69,7 @@ from kivy.properties import ObjectProperty, ListProperty, StringProperty
 from kivy.uix.filechooser import FileChooserListView
 from kivy.uix.floatlayout import FloatLayout
 from kivy.uix.listview import ListItemButton
+
 __author__ = 'unjuan'
 __version__ = '0.8.0'
 
@@ -82,7 +83,6 @@ class ScrollLabel(ScrollView):
         super(ScrollLabel, self).__init__(**kwargs)
 
 
-# noinspection PyIncorrectDocstring
 def folder_sort(files, filesystem):
     """ Sorts the files and folders in the 'File Dialogs' popups.
     Used in the FileChooserListViewX class
@@ -113,7 +113,6 @@ class DarkButton(ListItemButton):
         super(DarkButton, self).__init__(**kwargs)
 
 
-# noinspection PyIncorrectDocstring,PyArgumentList
 class LoadDialog(FloatLayout):
     """ 'Load File' popup dialog.
     """
@@ -134,7 +133,6 @@ class LoadDialog(FloatLayout):
         """
         if platform == 'win':
             import win32api
-            # noinspection PyUnresolvedReferences
             drives = win32api.GetLogicalDriveStrings()
             drives = drives.split('\000')[:-1]
             return drives
@@ -151,7 +149,6 @@ class LoadDialog(FloatLayout):
         self.filechooser.path = selected_item
 
 
-# noinspection PyIncorrectDocstring,PyArgumentList
 class SaveDialog(FloatLayout):
     """ 'Save File' popup dialog.
     """
@@ -172,7 +169,6 @@ class SaveDialog(FloatLayout):
         """
         if platform == 'win':
             import win32api
-            # noinspection PyUnresolvedReferences
             drives = win32api.GetLogicalDriveStrings()
             drives = drives.split('\000')[:-1]
             return drives
@@ -697,7 +693,6 @@ User's manual{1}
                                 'point for context menu. '
                                 'Scroll to zoom.')
 
-    # noinspection PyArgumentList
     def draw(self):
         while len(self.lines):
             self.scat.canvas.remove(self.lines.pop(0))
@@ -1057,7 +1052,6 @@ User's manual{1}
             pass
             print('touch_down', e)
 
-    # noinspection PyArgumentList
     def on_touch_move(self, touch):
         '''If paint option is enabled, lets the user paint with the mouse on
         the collidable areas to examine custom bounds.
@@ -1076,7 +1070,6 @@ User's manual{1}
             super(Editor, self).on_touch_move(touch)
             self.draw()
 
-    # noinspection PyUnusedLocal
     def on_key(self, window, key, *args):
         """ What happens on keyboard press"""
         # print(key, args)
