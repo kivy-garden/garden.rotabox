@@ -21,12 +21,12 @@ Basic Usage:
         rb.image = Image(source='img.png')
         rb.add_widget(rb.image)
         rb.custom_bounds = True
-        bounds = [[[(0.015, 0.981), (0.019, 0.342),
-                    (0.212, 0.034), (0.21, 0.427),
-                    (0.48, -0.001), (0.714, 0.342),
-                    (0.985, 0.75), (0.462, 0.668),
-                    (0.262, 0.978), (0.265, 0.599)],
-                   [9, 1, 3, 7, 5]]]
+        rb.bounds = [[[(0.015, 0.981), (0.019, 0.342),
+                       (0.212, 0.034), (0.21, 0.427),
+                       (0.48, -0.001), (0.714, 0.342),
+                       (0.985, 0.75), (0.462, 0.668),
+                       (0.262, 0.978), (0.265, 0.599)],
+                      [9, 1, 3, 7, 5]]]
 
     * Make a Rotabox instance.
     * Add an Image widget to the instance and assign it to the instance's
@@ -62,7 +62,7 @@ Rotabox Concept:
     with a rectangular polygon, with two checkpoints A and B.
                                                           .
                                                           .
-                         A o______________________________. . . . . . . . .
+                         A o------------------------------. . . . . . . . .
                            |                              |
                            |                              |
               (1)          |         (2)                  |
@@ -72,7 +72,7 @@ Rotabox Concept:
          1. Colliding      |     2. Colliding             | 3. Colliding
        according to B      |   according to both!         | according to A
       (A's 'False' area)   | (Legitimate collision)       |(B's 'False' area)
-        . . . . . . . . . .|______________________________o
+        . . . . . . . . . .|------------------------------o
                            .                               B
                            .
                            .
