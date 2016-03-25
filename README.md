@@ -2,7 +2,7 @@
 #### 2D Rotative Collision Detection with Custom Bounds in kivy
 ![example](images/example.png)
 
-*If rotabox.py is run directly, shows an example, where two Rotabox widgets, of different  configurations, collide with each other while rotating.*
+*If rotabox.py is run directly, shows an example, where two Rotabox widgets, collide with each other while rotating.*
 
 Rotabox is a *kivy widget* with fully customizable 2D bounds that follow its rotation.  
 The users shape their own, specific bounds, to fit an image (or a series of images in an animation), using polygons.
@@ -19,12 +19,12 @@ To use Rotabox, just include *rotabox.py* in your project files.
     rb.image = Image(source='img.png')
     rb.add_widget(rb.image)
     rb.custom_bounds = True
-    bounds = [[[(0.015, 0.981), (0.019, 0.342), 
-                (0.212, 0.034), (0.21, 0.427), 
-                (0.48, -0.001), (0.714, 0.342), 
-                (0.985, 0.75), (0.462, 0.668), 
-                (0.262, 0.978), (0.265, 0.599)], 
-               [9, 1, 3, 7, 5]]]
+    rb.bounds = [[[(0.015, 0.981), (0.019, 0.342), 
+                   (0.212, 0.034), (0.21, 0.427), 
+                   (0.48, -0.001), (0.714, 0.342), 
+                   (0.985, 0.75), (0.462, 0.668), 
+                   (0.262, 0.978), (0.265, 0.599)], 
+                  [9, 1, 3, 7, 5]]]
 ```
 
 * Make a Rotabox instance.
@@ -79,7 +79,7 @@ More than one polygons can be defined for Rotabox *bounds*.
 So, a complex shape can always be broken into more simple ones.
 
 _______
-## API
+# API
 
 ## Restrictions
 

@@ -331,11 +331,6 @@ class Rotabox(Widget):
         '''Enable bounds visualization and mouse painting (for testing).'''
         self.draw_bounds = False
 
-        '''If a dynamic change of [bounds] is required, switch both [scaled]
-        and [ready] to False, to reset widget'''
-        self.scaled = False
-        self.ready = False
-
         self.frames = {}
         self.polygons = []
         self.points = []
@@ -353,8 +348,9 @@ class Rotabox(Widget):
                   parent=self._trigger_update,
                   size=self._trigger_update,
                   pos=self._trigger_update,
-                  angle=self._trigger_update,
-                  bounds=self._trigger_update)
+                  angle=self._trigger_update)
+        self.scaled = False
+        self.ready = False
 
     def add_widget(self, widget, index=0, **kwargs):
         '''Birth control'''
@@ -365,21 +361,25 @@ class Rotabox(Widget):
 
     def on_size(self, *args):
         '''Enables the ON SIZE section of the [update] method.'''
-
         self.scaled = False
+
+    def on_bounds(self, *args):
+        self.scaled = False
+        self.ready = False
+        self._trigger_update()
 
     def prepare(self):
         '''Initial preparations.'''
 
         if not self.image:
-            # Auto assign [self.image] if child is an image.
+            # Auto assigning [self.image] if child is an image.
             if isinstance(self.children[0], Image):
                 self.image = self.children[0]
         if self.image:
             self.image.allow_stretch = True
             # self.image.texture.mag_filter = 'nearest'
             self.image.bind(source=self.scale)
-        # Build widget's bounds.
+        # Building widget's bounds.
         if self.custom_bounds:
             self.define_bounds()
 
@@ -393,8 +393,7 @@ class Rotabox(Widget):
 
     def scale(self, *args):
         '''Size and ratio updates.'''
-
-        # Adjust the widget's ratio if [self.image] or [self.ratio]
+        # Adjusting the widget's ratio if [self.image] or [self.ratio]
         try:
             self.ratio = self.image.image_ratio
         except AttributeError:
@@ -406,13 +405,13 @@ class Rotabox(Widget):
                 self.size = ((h * ratio, h) if h < w / ratio
                              else (w, w / ratio))
 
-        # Adjust the child's or image's size
+        # Adjusting the child's or image's size
         try:
             self.image.size = self.size
         except AttributeError:
             self.children[0].size = self.size
 
-        # Update widget's bounds
+        # Updating widget's bounds
         if self.custom_bounds:
             if self.frames:
                 for frame in self.frames.itervalues():
@@ -428,21 +427,20 @@ class Rotabox(Widget):
         '''
 
         if self.angle:
-            # Update internal angle of rotation
+            # Updating internal angle of rotation
             self.rotate.angle = self.angle
         if self.children:
             motion = self.pos != self.last_pos
             if motion:
-                # Update internal point of rotation
-                # print(self.rotate.origin)
+                # Updating internal point of rotation
                 self.rotate.origin = self.origin
-                # Update the child's or image's position
+                # Updating the child's or image's position
                 if self.image:
                     self.image.pos = self.pos
                 else:
                     self.children[0].pos = self.pos
                 self.last_pos = self.pos[:]
-            # Update custom bounds
+            # Updating custom bounds
             if self.custom_bounds:
                 if self.frames:
                     # An identically keyed atlas file is assumed here.
@@ -552,6 +550,7 @@ class Rotabox(Widget):
 
         # Translating points to current position.
         if motion:
+            # Optimization
             pos = self.pos
             for pol in polygons:
                 pol.rel_pts = [[x + y for x, y in izip(point, pos)]
