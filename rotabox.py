@@ -265,6 +265,7 @@ from kivy.properties import (NumericProperty, ReferenceListProperty,
                              AliasProperty, ObjectProperty)
 from math import radians, atan2, sin, cos
 from itertools import izip
+
 __author__ = 'unjuan'
 __version__ = '0.8.0'
 
@@ -664,31 +665,31 @@ class Rotabox(Widget):
                           this_box[0] <= point[0] <= this_box[2] and
                           this_box[1] <= point[1] <= this_box[3]]
 
-            # Third check (Fine check most probable points).
-            return self.collide_point(in_points=hot_points)
+            # Third check (Fine checking most probable points).
+            return self.collide_point(alien_points=hot_points)
         else:
             # Falling back to original Widget's checks.
             return super(Rotabox, self).collide_widget(widget)
 
-    def collide_point(self, x=0, y=0, in_points=None):
+    def collide_point(self, x=0, y=0, alien_points=None):
         '''Also serves as the [collide_widget]'s fine section.
             Supports lists of points as well.'''
 
         if self.custom_bounds:
             # If checking for a touch
-            if not in_points:
-                in_points = [(x, y)]
+            if not alien_points:
+                alien_points = [(x, y)]
             angle = self.radiangle
             # The other widget's points
-            for alien in in_points:
+            for alien in alien_points:
                 for pol in self.polygons:
                     # For each point with its index in [check_ids]:
                     for index in pol.check_ids:
-                        chk_point = pol.points[index]
-                        # Calculating the angle of the ray, that starts from
+                        checkpoint = pol.points[index]
+                        # Calculating the angle of the ray that starts from
                         # the checkpoint and passes through the incoming point.
-                        ray0 = atan2(alien[1] - chk_point[1],
-                                     alien[0] - chk_point[0]) % 6.283  # 2pi
+                        ray0 = atan2(alien[1] - checkpoint[1],
+                                     alien[0] - checkpoint[0]) % 6.283  # 2pi
                         # Updating the angles of checkpoint's adjacent sides.
                         ray1 = (pol.rays[index][0] + angle) % 6.283
                         ray2 = (pol.rays[index][1] + angle) % 6.283
@@ -701,7 +702,7 @@ class Rotabox(Widget):
                             ray1 = (ray1 + 6.293 - ray2) % 6.283
                             ray0 = (ray0 + 6.293 - ray2) % 6.283
                             ray2 = .01
-                        # Checking weather the ray-angle is between the
+                        # Checking weather the alien-angle is between the
                         # check-angles.
                         if not ray1 > ray0 > ray2:
                             break
@@ -758,7 +759,7 @@ if __name__ == '__main__':
         id: blue
         size: root.width * .6, root.height * .528
         center: root.width * .3, root.height * .5
-        image: imgb
+        image: img
         custom_bounds: True
         bounds:
             [[[(0.225, 0.685), (0.222, 0.405), (0.353, 0.278),
@@ -766,7 +767,7 @@ if __name__ == '__main__':
             (0.515, 0.553), (0.386, 0.683), (0.384, 0.526)], [1, 3, 5, 7, 9]]]
         # draw_bounds: True
         Image:
-            id: imgb
+            id: img
             source: 'data/logo/kivy-icon-256.png'
             color: 0, .3, .7, 1
     Rotabox:

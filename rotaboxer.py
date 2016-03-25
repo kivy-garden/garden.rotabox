@@ -509,14 +509,10 @@ User's manual{1}
     If checked, it functions as a quick save (no dialog).
     (Keep the project file with its image, to be able to open it).
 
-    {0}Auto Save{1}: If the user exits the editor without saving changes,
-    the project is automatically appended to the 'sessions.json'
-    file, at the editor's location, with date and name added to it.
-    So, if exited by mistake (not a crash), one can retrieve the
-    session by copying the appropriate line from the json file to
-    make a new rbx file.
-    Note, that the file is not maintained by the program and its
-    cleanup or disposal is at the user's discretion.
+    {0}Auto Save{1}: If the user exits the editor without saving changes
+    (not because of a crash), the project is automatically saved as
+    '<project (or image) name>_RESCUED_.rbx', at the project's
+    (or image's) location.
 
 [color=#9999ff][size=22][b][?][/b]{3}{1} button ({0}{2}F1{3}{1} key):
     Leads here.
@@ -782,7 +778,7 @@ User's manual{1}
 
     def load_img(self, filename, path, source=None):
         self.dismiss_popup()
-        filename = os.path.join(path, filename)
+        filename = os.path.join(path, filename).replace('./', '')
         self.filename = filename.replace('.png',
                                          '').replace('.atlas',
                                                      '').replace('.rbx', '')
@@ -983,27 +979,23 @@ User's manual{1}
                 json.dump(project, proj, sort_keys=True, indent=4)
         except IOError as e:
             print('On saving:', e)
-            pass
         else:
             self.actions = 0
 
     def exit_save(self, *args):
         self.make_points()
-        for frame in self.dummy.itervalues():
+        project = copy.deepcopy(self.dummy)
+        for frame in project.itervalues():
             for poly in frame.itervalues():
                 del poly['btn_points']
-        project = {'..date': time.strftime("%Y/%m/%d_%H:%M:%S"),
-                   '..name': self.save_name,
-                   '.image': self.image}
-        project.update(self.dummy)
+        project['image'] = self.image
+        root, ext = os.path.splitext(self.save_name)
+        save_name = root + '_RESCUED_' + ext
         try:
-            with open('sessions.json', 'a') as proj:
-                out = json.dumps(project, proj, separators=(',', ':'),
-                                 sort_keys=True)
-                proj.write(out + '\n')
+            with open(save_name, 'w+') as proj:
+                json.dump(project, proj, sort_keys=True, indent=4)
         except IOError as e:
             print('On saving:', e)
-            pass
 
     # ------------------------ OTHER -----------------------
 
