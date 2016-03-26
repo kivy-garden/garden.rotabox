@@ -873,7 +873,7 @@ User's manual{1}
                               for point in poly['btn_points']]
 
     def write(self):
-        py = self.lang_btn.text.lstrip().startswith('py')
+        py = self.lang_btn.text.lstrip().startswith('Py')
         if self.atlas_source:
             for frame in self.dummy.itervalues():
                 self.make_hints(frame)
