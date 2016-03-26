@@ -778,10 +778,10 @@ User's manual{1}
 
     def load_img(self, filename, path, source=None):
         self.dismiss_popup()
-        filename = os.path.join(path, filename).replace('./', '')
-        self.filename = filename.replace('.png',
-                                         '').replace('.atlas',
-                                                     '').replace('.rbx', '')
+        filename = os.path.join(path, filename)\
+            .replace('./', '').replace('_RESCUED_', '')
+        self.filename = filename.replace('.png', '')\
+            .replace('.atlas', '').replace('.rbx', '')
         if source:
             filename = filename.replace(filename.split('\\')[-1], source)
         self.image = filename.split('\\')[-1]
