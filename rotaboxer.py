@@ -535,6 +535,9 @@ User's manual{1}
 [color=#7272bf][size=24][b][<][>][/b]{3}{1} buttons ({0}{2}Left-Right{3}{1} keys):
     Navigate through an atlas' images.
 
+    {0}Pass points{1}: If {0}{2}Ctrl{3}{1} key is pressed, frame's points REPLACE
+    destination frame's points.
+
 [color=#9999ff][size=18][□]{3}{1} [color=#7272bf][size=24][b][□][/b]{3}{1} buttons ({0}{2}Up-Down{3}{1} keys):
     Zoom.
 
@@ -657,10 +660,14 @@ User's manual{1}
             self.board2.text = 'Help [F1]'
             return True
         if self.prev.collide_point(*pos):
-            self.board2.text = "Navigate through an atlas' images. [Left]"
+            self.board2.text = "Navigate through an atlas' images. [Left]\n" \
+                               "If Ctrl is pressed, frame's points REPLACE " \
+                               "previous frame's points."
             return True
         if self.next.collide_point(*pos):
-            self.board2.text = "Navigate through an atlas' images. [Right]"
+            self.board2.text = "Navigate through an atlas' images. [Right]\n" \
+                               "If Ctrl is pressed, frame's points REPLACE " \
+                               "next frame's points."
             return True
         if self.minus.collide_point(*pos):
             self.board2.text = 'Zoom out. [Down]'
