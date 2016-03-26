@@ -178,19 +178,19 @@ Customizing the Collidable Area:
         item is a list of one or more polygons' data like the above.
         Here's an example of such a dictionary:
 
-            self.bounds = {'0': [[[(0.201, 0.803), (0.092, 0.491),
-                                   (0.219, 0.184), (0.526, 0.064)],
-                                  [1, 3]],
-                                 [[(0.419, 0.095), (0.595, 0.088),
-                                   (0.644, 0.493)],
-                                  [1, 2]]],
-                           '1': [[[(0.357, 0.902), (0.17, 0.65),
-                                   (0.184, 0.337), (0.343, 0.095),
-                                   (0.644, 0.098)],
-                                  [0, 2, 4]]],
-                           '2': [[[(...
-                                   ...
-                                  ... etc ]]]}
+            self.bounds = {'00': [[[(0.201, 0.803), (0.092, 0.491),
+                                    (0.219, 0.184), (0.526, 0.064)],
+                                   [1, 3]],
+                                  [[(0.419, 0.095), (0.595, 0.088),
+                                    (0.644, 0.493)],
+                                   [1, 2]]],
+                           '01': [[[(0.357, 0.902), (0.17, 0.65),
+                                    (0.184, 0.337), (0.343, 0.095),
+                                    (0.644, 0.098)],
+                                   [0, 2, 4]]],
+                           '02': [[[(...
+                                    ...
+                                   ... etc ]]]}
 
         Each polygon's data consist of two lists:
 
@@ -259,6 +259,7 @@ from kivy.uix.widget import Widget
 from kivy.uix.image import Image
 from kivy.clock import Clock
 from kivy.graphics import PushMatrix, Rotate, PopMatrix
+from kivy.graphics.instructions import InstructionGroup
 from kivy.graphics.context_instructions import Color
 from kivy.graphics.vertex_instructions import Line
 from kivy.properties import (NumericProperty, ReferenceListProperty,
@@ -335,7 +336,7 @@ class Rotabox(Widget):
         self.frames = {}
         self.polygons = []
         self.points = []
-        self.box = []
+        self.box = [0, 0, 0, 0]
         self.last_angle = 0
         self.last_pos = []
         self.radiangle = 0
@@ -345,6 +346,7 @@ class Rotabox(Widget):
         self.canvas.before.add(PushMatrix())
         self.canvas.before.add(self.rotate)
         self.canvas.after.add(PopMatrix())
+        self.paint_group = InstructionGroup()
         self.bind(children=self._trigger_update,
                   parent=self._trigger_update,
                   size=self._trigger_update,
@@ -357,7 +359,7 @@ class Rotabox(Widget):
         '''Birth control'''
 
         if self.children:
-            raise Exception('Rotabox can have only one child.')
+            raise Exception('Rotabox can have one child only.')
         return super(Rotabox, self).add_widget(widget, index)
 
     def on_size(self, *args):
@@ -365,6 +367,8 @@ class Rotabox(Widget):
         self.scaled = False
 
     def on_bounds(self, *args):
+        '''Enables bounds reset.'''
+
         self.scaled = False
         self.ready = False
         self._trigger_update()
@@ -385,7 +389,8 @@ class Rotabox(Widget):
             self.define_bounds()
 
         if self.draw_bounds:
-            self.canvas.add(self.draw_color)
+            self.canvas.after.add(self.paint_group)
+            self.canvas.after.add(self.draw_color)
             for _ in self.polygons:
                 self.draw_lines.append(Line(close=True, dash_offset=3,
                                        dash_length=5))
@@ -722,9 +727,9 @@ class Rotabox(Widget):
 
         if self.draw_bounds:
             if self.collide_point(*touch.pos):
-                with self.canvas.after:
-                    Color(.7, .3, 0, 1)
-                    Line(circle=(touch.pos[0], touch.pos[1], 3))
+                self.paint_group.add(Color(.7, .3, 0, 1))
+                self.paint_group.add(Line(circle=(touch.pos[0],
+                                                  touch.pos[1], 3)))
         else:
             super(Rotabox, self).on_touch_move(touch)
 

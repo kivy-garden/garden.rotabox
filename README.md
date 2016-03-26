@@ -5,7 +5,7 @@
 *If rotabox.py is run directly, shows an example, where two Rotabox widgets, collide with each other while rotating.*
 
 Rotabox is a *kivy widget* with fully customizable 2D bounds that follow its rotation.  
-The users shape their own, specific bounds, to fit an image (or a series of images in an animation), using polygons.
+The users shape their own, specific bounds, to fit an image (or a series of images in an animation), using polygons.  
 There's a handy editor for this, available in the package *(See Rotaboxer at the end of this document)*.  
 
 ___
@@ -138,19 +138,19 @@ where the *keys* correspond to the frame names in the *.atlas* file and each *it
 Here's an example of such a *dictionary*:
 
 ```python
-self.bounds = {'0': [[[(0.201, 0.803), (0.092, 0.491),
-                       (0.219, 0.184), (0.526, 0.064)],
-                      [1, 3]],
-                     [[(0.419, 0.095), (0.595, 0.088),
-                       (0.644, 0.493)],
-                      [1, 2]]],
-               '1': [[[(0.357, 0.902), (0.17, 0.65),
-                       (0.184, 0.337), (0.343, 0.095),
-                       (0.644, 0.098)],
-                      [0, 2, 4]]],
-               '2': [[[(...
-                       ...
-                      ... etc ]]]}
+self.bounds = {'00': [[[(0.201, 0.803), (0.092, 0.491),
+                        (0.219, 0.184), (0.526, 0.064)],
+                       [1, 3]],
+                      [[(0.419, 0.095), (0.595, 0.088),
+                        (0.644, 0.493)],
+                       [1, 2]]],
+               '01': [[[(0.357, 0.902), (0.17, 0.65),
+                        (0.184, 0.337), (0.343, 0.095),
+                        (0.644, 0.098)],
+                       [0, 2, 4]]],
+               '02': [[[(...
+                        ...
+                       ... etc ]]]}
 ```
 
 Each polygon's data is a *list* consisting of two lists:

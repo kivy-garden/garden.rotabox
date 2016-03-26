@@ -34,7 +34,7 @@ import json
 import re
 import os
 import copy
-import time
+from kivy.graphics.instructions import InstructionGroup
 
 app_config = {}
 try:
@@ -228,7 +228,6 @@ class Point(ToggleButton):
     def on_state(self, *args):
         if self.state == 'down':
             self.opacity = 1
-            self.background_color = 1, 1, 1, 1
         else:
             self.opacity = 0
 
@@ -242,7 +241,6 @@ class Point(ToggleButton):
             self.clock = Clock.schedule_once(self.grab, .12)
 
     def grab(self, *args):
-            self.root.draw_points = False
             Window.bind(on_motion=self.drag)
 
     def drag(self, *args):
@@ -256,7 +254,6 @@ class Point(ToggleButton):
                 self.clock.cancel()
             else:
                 self.opacity = 1
-                self.root.draw_points = True
                 Window.unbind(on_motion=self.drag)
                 self.root.actions += 1
                 self.root.draw()
@@ -304,10 +301,8 @@ class Editor(RelativeLayout):
         self.curr_frame = '0'
         self.curr_poly = None
         self.curr_index = None
-        self.draw_points = True
+        self.keep_points = False
         self.popup = None
-        self.lines = []
-        self.dots = []
         self.actions = 0
         self.filename = ''
         self.source = ''
@@ -315,9 +310,14 @@ class Editor(RelativeLayout):
         self.image = ''
         self.code = ''
         self.save_name = ''
+        self.draw_group = InstructionGroup()
+        self.scat.canvas.add(self.draw_group)
+        self.paint_group = InstructionGroup()
+        self.scat.canvas.add(self.paint_group)
         self.mag = 3
         self.last_dir = app_config.get('last dir', './')
-        EventLoop.window.bind(on_keyboard=self.on_key)
+        EventLoop.window.bind(on_keyboard=self.on_key,
+                              on_key_up=self.leave_points)
 
     # ------------------------ EDITOR -----------------------
 
@@ -412,12 +412,11 @@ class Editor(RelativeLayout):
 
     def navigate(self, btn):
         if self.atlas_source:
+            cf = self.curr_frame
             while len(self.scat.children) > 1:
                 for point in self.scat.children:
                     if isinstance(point, Point):
                         self.scat.remove_widget(point)
-            self.clear()
-            self.curr_poly = None
             if btn == '>':
                 self.curr_frame = \
                     self.keys[self.keys.index(self.curr_frame) + 1] \
@@ -430,13 +429,29 @@ class Editor(RelativeLayout):
                     else self.keys[-1]
             self.sprite.image.source = ('atlas://' + self.filename + '/'
                                                    + self.curr_frame)
+            if self.keep_points:
+                for key in self.dummy[cf].iterkeys():
+                    self.dummy[self.curr_frame][key] = {'btn_points': [],
+                                                        'check_points': []}
+                for (k, v), (k2, v2) in \
+                        zip(self.dummy[cf].iteritems(),
+                            self.dummy[self.curr_frame].iteritems()):
+
+                    for point in v['btn_points']:
+                        v2['btn_points'].append(Point(self, self.mag,
+                                                      pos=point.center,
+                                                      state='down'))
+                    v2['check_points'] = v['check_points'][:]
+
             for poly in self.dummy[self.curr_frame].itervalues():
                 for point in poly['btn_points']:
                     self.scat.add_widget(point)
                     point.opacity = 0
                 for index in poly['check_points']:
                     poly['btn_points'][index].appointed = True
+
             self.curr_poly = None
+            self.clear()
             self.draw()
             self.board1.text = (self.image + '\n('
                                 + str(self.keys.index(self.curr_frame) + 1)
@@ -546,16 +561,15 @@ User's manual{1}
     Cleans after the Paint mode.
 
 [color=#9999ff]{2}[b][Python/KVlang][/b]{3}{1} button ({0}{2}L{3}{1} key):
-    Select the outputed code's flavor.
+    Select the resulting code's flavor.
 
 [color=#cc9966]{2}[b][Code to Clipboard][/b]{3}{1} button ({0}{2}Ctrl + C{3}{1} keys):
-    Copies the resulting code to clipboard, to use in a project.
-    {0}NOTE:{1} Image.source's path in the code will be relative to
-    where Rotaboxer is (if in the same drive).
+    Copies the resulting code to clipboard, to use in a Rotabox
+    widget.
 
      ____________________________________________________________________________
-  {0}*{1} Rotabox is a kivy widget, that can have rotatable, custom
-    shaped, animated colliding bounds.
+  {0}*{1} Rotabox is a kivy widget, that have rotatable, fully
+    customizable 2D colliding bounds.
     To understand the concept of the Rotabox collision detection,
     you can refer to its module's documentation.
         '''.format('[color=#ffffff]', '[/color]', '[size=20]', '[/size]',
@@ -614,7 +628,7 @@ User's manual{1}
         except TypeError as e:
             print(e)
 
-        if not len(self.dots):
+        if not self.paint_group.length():
             self.clear_btn.disabled = True
         else:
             self.clear_btn.disabled = False
@@ -678,7 +692,7 @@ User's manual{1}
             return True
         if self.copy_btn.collide_point(*pos):
             self.board2.text = 'Copy the resulting code to clipboard, ' \
-                               'to use in a project. [Ctrl] + [C]'
+                               'to use in a Rotabox widget. [Ctrl] + [C]'
             return True
         if self.paint_btn.state == 'down':
             self.board2.text = ('Paint on the image to test the '
@@ -690,32 +704,32 @@ User's manual{1}
                                 'Scroll to zoom.')
 
     def draw(self):
-        while len(self.lines):
-            self.scat.canvas.remove(self.lines.pop(0))
-        mag = self.mag
-        with self.scat.canvas:
-            for poly in self.dummy[self.curr_frame].values():
-                for i in xrange(len(poly['btn_points'])):
-                    if self.draw_points:
-                        Color(1, 0, 1, 1)
-                        if poly['btn_points'][i].appointed:
-                            Color(0.29, 0.518, 1, 1)
-                        self.lines.append(Line(
-                            circle=(poly['btn_points'][i].center_x,
-                                    poly['btn_points'][i].center_y, mag)))
-                    Color(.7, 0, .7, 1)
-                    k = i - 1 if i > 0 else -1
-                    if poly['btn_points'][i].appointed or poly['btn_points'][k].appointed:
-                            Color(0.29, 0.518, 1, 1)
-                    self.lines.append(Line(
-                        points=(poly['btn_points'][i].center_x,
-                                poly['btn_points'][i].center_y,
-                                poly['btn_points'][k].center_x,
-                                poly['btn_points'][k].center_y)))
+        self.draw_group.clear()
+        for poly in self.dummy[self.curr_frame].values():
+            for i in xrange(len(poly['btn_points'])):
+                if poly['btn_points'][i].appointed:
+                    self.draw_group.add(Color(0.29, 0.518, 1, 1))
+                    self.draw_group.add(Line(
+                        circle=(poly['btn_points'][i].center_x,
+                                poly['btn_points'][i].center_y, self.mag+1)))
+                self.draw_group.add(Color(.7, 0, .7, 1))
+                self.draw_group.add(Line(
+                    circle=(poly['btn_points'][i].center_x,
+                            poly['btn_points'][i].center_y, self.mag)))
+                k = i - 1 if i > 0 else -1
+                if poly['btn_points'][i].appointed \
+                        or poly['btn_points'][k].appointed:
+                    self.draw_group.add(Color(0.29, 0.518, 1, 1))
+                else:
+                    self.draw_group.add(Color(1, .29, 1, 1))
+                self.draw_group.add(Line(
+                    points=(poly['btn_points'][i].center_x,
+                            poly['btn_points'][i].center_y,
+                            poly['btn_points'][k].center_x,
+                            poly['btn_points'][k].center_y)))
 
     def clear(self):
-        while len(self.dots):
-            self.scat.canvas.remove(self.dots.pop(0))
+        self.paint_group.clear()
         self.clear_btn.disabled = True
 
     # ------------------------ INPUT -----------------------
@@ -761,7 +775,6 @@ User's manual{1}
             self.sprite.pos = self.width * .5, self.height * .5
             self.scat.scale = 1
             self.actions = 0
-            self.clear()
             try:
                 self.sprite.remove_widget(self.sprite.image)
             except AttributeError as e:
@@ -901,9 +914,9 @@ User's manual{1}
 
     def write_more(self, frame, py):
         if self.atlas_source:
-            poiws = '\n                               '
-            chpws = '\n                              '
-            polws = '\n                             '
+            poiws = '\n                                '
+            chpws = '\n                               '
+            polws = '\n                              '
         else:
             poiws = '\n                         '
             chpws = '\n                        '
@@ -915,9 +928,9 @@ User's manual{1}
             for point in poly['points']:
                 self.code += '(' + str(point[0]) + ', ' + str(point[1]) + '), '
                 # if len(self.code.split('\n')[-1]) > 40:
-                if py and len(self.code.split('\n')[-1]) > 40:
+                if py and len(self.code.split('\n')[-1]) > 65:
                     self.code += poiws
-                elif len(self.code.split('\n')[-1]) > 64:
+                elif len(self.code.split('\n')[-1]) > 65:
                     self.code += kvspace
             self.code = (self.code.rstrip(',\n ') + '], ')
             if py:
@@ -1054,9 +1067,8 @@ User's manual{1}
         pos = self.scat.to_widget(*touch.pos)
         if self.paint_btn.state == 'down' and mouse_btn != 'right':
             if self.sprite.collide_point(*pos):
-                with self.scat.canvas:
-                    Color(.7, .3, 0, 1)
-                    self.dots.append(Line(circle=(pos[0], pos[1], 1)))
+                self.paint_group.add(Color(.7, .3, 0, 1))
+                self.paint_group.add(Line(circle=(pos[0], pos[1], 1)))
                 self.clear_btn.disabled = False
         else:
             super(Editor, self).on_touch_move(touch)
@@ -1065,6 +1077,8 @@ User's manual{1}
     def on_key(self, window, key, *args):
         """ What happens on keyboard press"""
         # print(key, args)
+        if key == 305 or key == 306:  # Ctrl
+            self.keep_points = True
         if key == 27:  # Esc/Back
             if self.popup:
                 self.dismiss_popup()
@@ -1164,6 +1178,10 @@ User's manual{1}
             else:
                 self.navigate('<')
         self.draw()
+
+    def leave_points(self, window, key, *args):
+        if key == 305 or key == 306:  # Ctrl
+            self.keep_points = False
 
     @staticmethod
     def sanitize_filename(filename):
