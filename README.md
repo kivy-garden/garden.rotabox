@@ -195,4 +195,9 @@ ___
 A convenient way to shape the colliding areas of a Rotabox widget, especially when dealing with multiple frames of a spritesheet animation.  
 Open a *.png* image or an *.atlas* file in the editor, work on its bounds and, when ready, copy the resulting code to clipboard for use in a Rotabox widget.
 
-To use it, run *rotaboxer.py* directly. It can be found at the package root.  
+To use it, run *rotaboxer.py* directly. It can be found at the package root.
+  
+## Warning:
+### Still working on the editor.  
+### It's main output (the clipboard) should work fine, but any saved projects (json files opened by the editor), won't be compatible with the next version.
+
