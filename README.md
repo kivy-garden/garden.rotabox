@@ -198,6 +198,6 @@ Open a *.png* image or an *.atlas* file in the editor, work on its bounds and, w
 To use it, run *rotaboxer.py* directly. It can be found at the package root.
   
 ## Warning:
-### Still working on the editor.  
-### Its main output (the clipboard) should work fine, but any saved projects (json files opened by the editor), won't be compatible with the next version.
+### Still working on the editor.
+
 
