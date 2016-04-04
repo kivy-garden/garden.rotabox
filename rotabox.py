@@ -79,8 +79,8 @@ Rotabox Concept:
     There's no need for the remaining two vertices of the above rectangle to be
     checkpoints, since their legs are already parts of A and C corners.
 
-    NOTE: As a general rule, at least one of two consecutive vertices should be
-    a checkpoint, but they don't both have to be.
+    NOTE: As a general rule, at least one of any two consecutive vertices should
+    be a checkpoint, but they don't both have to be.
 
     In the above example it's just a matter of economy, but in certain cases
     there are vertices that can't be checkpoints.
@@ -268,7 +268,7 @@ from math import radians, atan2, sin, cos
 from itertools import izip
 
 __author__ = 'unjuan'
-__version__ = '0.8.0'
+__version__ = '0.8.1'
 
 class Rotabox(Widget):
     '''(See module's documentation).'''
@@ -340,6 +340,7 @@ class Rotabox(Widget):
         self.last_angle = 0
         self.last_pos = []
         self.radiangle = 0
+        self.current_frame = 0
         self.draw_lines = []
         self.draw_color = Color(0.29, 0.518, 1, 1)
         self.rotate = Rotate(angle=0, origin=self.center)
@@ -378,7 +379,7 @@ class Rotabox(Widget):
 
         if not self.image:
             # Auto assigning [self.image] if child is an image.
-            if isinstance(self.children[0], Image):
+            if self.children and isinstance(self.children[0], Image):
                 self.image = self.children[0]
         if self.image:
             self.image.allow_stretch = True
@@ -400,10 +401,9 @@ class Rotabox(Widget):
     def scale(self, *args):
         '''Size and ratio updates.'''
         # Adjusting the widget's ratio if [self.image] or [self.ratio]
-        try:
+        if self.image:
             self.ratio = self.image.image_ratio
-        except AttributeError:
-            pass
+
         if self.ratio and self.height:
             w, h = self.size
             ratio = self.ratio
@@ -412,9 +412,9 @@ class Rotabox(Widget):
                              else (w, w / ratio))
 
         # Adjusting the child's or image's size
-        try:
+        if self.image:
             self.image.size = self.size
-        except AttributeError:
+        elif self.children:
             self.children[0].size = self.size
 
         # Updating widget's bounds
@@ -433,26 +433,28 @@ class Rotabox(Widget):
         '''
 
         if self.angle:
-            # Updating internal angle of rotation
+            # Updating internal point and angle of rotation
+            self.rotate.origin = self.origin
             self.rotate.angle = self.angle
-        if self.children:
-            motion = self.pos != self.last_pos
-            if motion:
-                # Updating internal point of rotation
-                self.rotate.origin = self.origin
-                # Updating the child's or image's position
+
+        motion = self.pos != self.last_pos
+        if motion:
+            # Updating the child's or image's position
+            if self.image:
+                self.image.pos = self.pos
+            elif self.children:
+                self.children[0].pos = self.pos
+            self.last_pos = self.pos[:]
+        # Updating custom bounds
+        if self.custom_bounds:
+            if self.frames:
                 if self.image:
-                    self.image.pos = self.pos
-                else:
-                    self.children[0].pos = self.pos
-                self.last_pos = self.pos[:]
-            # Updating custom bounds
-            if self.custom_bounds:
-                if self.frames:
                     # An identically keyed atlas file is assumed here.
                     polygons = self.frames[self.image.source.split('/')[-1]]
                 else:
-                    polygons = self.polygons
+                    polygons = self.next_frame()
+            else:
+                polygons = self.polygons
                 if motion or self.angle:
                     self.radiangle = radians(self.angle) % 6.283
                     self.update_bounds(polygons, motion, self.radiangle)
@@ -465,9 +467,15 @@ class Rotabox(Widget):
             if self.ready:
                 return
 
-            # ------------------------- INITIALLY
-            self.prepare()
-            self.ready = True
+        # ------------------------- INITIALLY
+        self.prepare()
+        self.ready = True
+
+    def next_frame(self):
+        '''Progressing the frames in case of a non-atlas animation'''
+
+        self.current_frame += 1
+        return self.frames[str(self.current_frame)]
 
     # ---------------------------------------------- BOUNDS & COLLISION
 
@@ -790,7 +798,6 @@ if __name__ == '__main__':
             [[(0.033, 0.315), (0.212, 0.598), (0.218, 0.028)],
             [0, 2]]]
         draw_bounds: True
-        Widget:
     ''')
 
     class Root(FloatLayout):

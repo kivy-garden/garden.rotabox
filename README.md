@@ -60,7 +60,7 @@ The collidable area is what's left when all the checkpoints are done discarding.
 
 There's no need for the remaining two vertices of the above rectangle to be checkpoints, since their legs are already parts of A and C corners.
 
-#####NOTE: As a general rule, at least one of two consecutive vertices should be a checkpoint, but they don't both have to be.
+#####NOTE: As a general rule, at least one of any two consecutive vertices should be a checkpoint, but they don't both have to be.
 
 In the above example it's just a matter of efficiency, but in certain cases there are vertices that can't be checkpoints.  
 Consider the concave polygon below, to see the problem:
@@ -190,14 +190,9 @@ ___
 # Rotaboxer
 ## A visual editor for Rotabox bounds
 
-![rotaboxer](images/rotaboxer.png)
+![editor](images/editor.png)
 
 A convenient way to shape the colliding areas of a Rotabox widget, especially when dealing with multiple frames of a spritesheet animation.  
 Open a *.png* image or an *.atlas* file in the editor, work on its bounds and, when ready, copy the resulting code to clipboard for use in a Rotabox widget.
 
-To use it, run *rotaboxer.py* directly. It can be found at the package root.
-  
-## Warning:
-### Still working on the editor.
-
-
+To use it, run *rotaboxer.py* directly. It can be found at the package root.  

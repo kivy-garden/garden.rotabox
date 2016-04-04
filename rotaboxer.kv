@@ -1,4 +1,4 @@
-# version 0.8.0 - kivy 1.9.0 - python 2.7.10
+# version 0.9.0 - kivy 1.9.0 - python 2.7.10
 #:import listview kivy.uix.listview
 #:import listadapter kivy.adapters.listadapter
 #:import DarkButton rotaboxer.DarkButton
@@ -9,10 +9,10 @@
     board1: board1
     board2: board2
     load_btn: load_btn
-    save_btn: save_btn
     save: save
-    chk_box: chk_box
     help_btn: help_btn
+    undo: undo
+    redo: redo
     prev: prev
     next: next
     minus: minus
@@ -22,7 +22,6 @@
     rem_btn: rem_btn
     clear_pol: clear_pol
     paint_btn: paint_btn
-    clear_btn: clear_btn
     lang_btn: lang_btn
     copy_btn: copy_btn
     scat: scat
@@ -39,8 +38,6 @@
                 texture: app.texture
     ScatterPlane:
         id: scat
-        scale_min: .1
-        scale_max: 4.
         do_rotation:False
         auto_bring_to_front: False
         Sprite:
@@ -79,7 +76,7 @@
                             id: save_btn
                             group: 'utils'
                             background_color: .3, .3, .5, 1
-                            text: '      Save'
+                            text: '        Save as'
                             on_release:
                                 if chk_box.active: root.save_proj()
                                 else: root.save_dialog()
@@ -88,6 +85,9 @@
                             id: chk_box
                             size_hint_x: .3
                             pos_hint: {'center_x': .2, 'center_y': .5}
+                            on_active:
+                                if self.active: save_btn.text = '      Save'
+                                else: save_btn.text = '        Save as'
                     Image:
                         size_hint: .01, 1
                         color: 0,0,0,0
@@ -96,58 +96,34 @@
                         group: 'utils'
                         size_hint: .4, 1
                         background_color: .3, .3, .5, 1
-                        font_size: '20sp'
-                        text: '?'
+                        font_name: 'guifont'
+                        font_size: '40sp'
+                        text: 'g'
                         on_release: root.help()
                     Image:
                         size_hint: .01, 1
                         color: 0,0,0,0
-                BoxLayout:
-                    size_hint: .75, 1
                     Button:
-                        id: prev
-                        group: 'nav'
-                        size_hint: .2, 1
-                        background_color: .3, .3, .5, 1
-                        font_size: '30sp'
-                        text: '<'
-                        on_release: root.navigate(self.text)
-                        disabled: True
-                    Image:
-                        size_hint: .005, 1
-                        color: 0,0,0,0
-                    Button:
-                        id: next
-                        group: 'nav'
-                        size_hint: .2, 1
-                        background_color: .3, .3, .5, 1
-                        font_size: '30sp'
-                        text: '>'
-                        on_release: root.navigate(self.text)
-                        disabled: True
-                    Image:
-                        size_hint: .005, 1
-                        color: 0,0,0,0
-                    Button:
-                        id: minus
+                        id: lang_btn
                         group: 'utils'
-                        size_hint: .2, 1
-                        background_color: .3, .3, .5, 1
-                        font_size: '15sp'
-                        text: '□'
-                        on_release: root.zoom('minus')
+                        size_hint: .7, 1
+                        text: '  python  [font=guifont][size=10]a[/size][/font]'
+                        markup: True
+                        background_color: .4, .3, .2, 1  # .3, .3, .5, 1
+                        on_release:
+                            if self.text == '  python  [font=guifont][size=10]a[/size][/font]': self.text = '  kvlang  [font=guifont][size=10]a[/size][/font]'
+                            else: self.text = '  python  [font=guifont][size=10]a[/size][/font]'
                         disabled: True
                     Image:
-                        size_hint: .005, 1
+                        size_hint: .01, 1
                         color: 0,0,0,0
                     Button:
-                        id: plus
+                        id: copy_btn
                         group: 'utils'
-                        size_hint: .2, 1
-                        background_color: .3, .3, .5, 1
-                        font_size: '30sp'
-                        text: '□'
-                        on_release: root.zoom('plus')
+                        text: 'to Clipboard'
+                        markup: True
+                        background_color: .4, .3, .2, 1
+                        on_release: root.copy_to_clipboard();
                         disabled: True
             BoxLayout:
                 pos_hint: {'center_x': .5, 'top': .895}
@@ -179,17 +155,7 @@
                     group: 'edit'
                     background_color: .3, .4, .3, 1
                     text: 'Checkpoint'
-                    on_release: root.set_check_point()
-                    disabled: True
-                Image:
-                    size_hint: .01, 1
-                    color: 0,0,0,0
-                Button:
-                    id: des_btn
-                    group: 'edit'
-                    background_color: .3, .4, .3, 1
-                    text: 'Deselect'
-                    on_release: root.deselect_polygon()
+                    on_release: root.set_checkpoint()
                     disabled: True
                 Image:
                     size_hint: .01, 1
@@ -209,7 +175,18 @@
                     group: 'edit'
                     background_color: .3, .4, .3, 1
                     text: 'Remove polygon'
-                    on_release: root.confirm_clear()
+                    on_release: root.clear_polygon()
+#                    on_release: root.confirm_clear()
+                    disabled: True
+                Image:
+                    size_hint: .01, 1
+                    color: 0,0,0,0
+                Button:
+                    id: des_btn
+                    group: 'edit'
+                    background_color: .3, .4, .3, 1
+                    text: 'Deselect'
+                    on_release: root.deselect_polygon()
                     disabled: True
             Image:
                 size_hint: 1, .05
@@ -218,42 +195,90 @@
                 ToggleButton:
                     id: paint_btn
                     group: 'toggles'
+                    size_hint: .33, 1
+                    background_down: self.background_normal
                     background_color: .3, .15, .3, 1
                     text: 'Paint test'
                     always_release: True
                     disabled: True
                 Image:
-                    size_hint: .01, 1
+                    size_hint: .005, 1
                     color: 0,0,0,0
-                Button:
-                    id: clear_btn
-                    group: 'utils'
-                    background_color: .3, .15, .3, 1
-                    text: 'Clear paint'
-                    on_release: root.clear()
-                    disabled: True
-                Image:
-                    size_hint: .01, 1
-                    color: 0,0,0,0
-                Button:
-                    id: lang_btn
-                    group: 'utils'
-                    text: '           Python     >  >'
-                    background_color: .3, .3, .5, 1
-                    on_release:
-                        if self.text == '           Python     >  >': self.text = '           KVlang     >  >'
-                        else: self.text = '           Python     >  >'
-                    disabled: True
-                Image:
-                    size_hint: .01, 1
-                    color: 0,0,0,0
-                Button:
-                    id: copy_btn
-                    group: 'utils'
-                    text: '>    to Clipboard      '
-                    background_color: .4, .3, .2, 1
-                    on_release: root.copy();
-                    disabled: True
+                BoxLayout:
+                    Button:
+                        id: undo
+                        group: 'edit'
+                        size_hint: .2, 1
+                        background_color: .3, .4, .3, 1
+                        font_name: 'guifont'
+                        font_size: '22sp'
+                        text: 'q'
+                        on_release: root.change_state('undo')
+                        disabled: True
+                    Image:
+                        size_hint: .005, 1
+                        color: 0,0,0,0
+                    Button:
+                        id: redo
+                        group: 'edit'
+                        size_hint: .2, 1
+                        background_color: .3, .4, .3, 1
+                        font_name: 'guifont'
+                        font_size: '22sp'
+                        text: 'w'
+                        on_release: root.change_state('redo')
+                        disabled: True
+                    Image:
+                        size_hint: .005, 1
+                        color: 0,0,0,0
+                    Button:
+                        id: prev
+                        group: 'nav'
+                        size_hint: .2, 1
+                        background_color: .3, .3, .5, 1
+                        font_name: 'guifont'
+                        font_size: '20sp'
+                        text: 'e'
+                        on_release: root.navigate('<')
+                        disabled: True
+                    Image:
+                        size_hint: .005, 1
+                        color: 0,0,0,0
+                    Button:
+                        id: next
+                        group: 'nav'
+                        size_hint: .2, 1
+                        background_color: .3, .3, .5, 1
+                        font_name: 'guifont'
+                        font_size: '20sp'
+                        text: 'r'
+                        on_release: root.navigate('>')
+                        disabled: True
+                    Image:
+                        size_hint: .005, 1
+                        color: 0,0,0,0
+                    Button:
+                        id: minus
+                        group: 'utils'
+                        size_hint: .2, 1
+                        background_color: .3, .3, .5, 1
+                        font_name: 'guifont'
+                        text: 's'
+                        on_release: root.zoom('minus')
+                        disabled: True
+                    Image:
+                        size_hint: .005, 1
+                        color: 0,0,0,0
+                    Button:
+                        id: plus
+                        group: 'utils'
+                        size_hint: .2, 1
+                        background_color: .3, .3, .5, 1
+                        font_name: 'guifont'
+                        font_size: '25sp'
+                        text: 's'
+                        on_release: root.zoom('plus')
+                        disabled: True
 
 <Button>:
     always_release: False
@@ -273,6 +298,15 @@
         size: root.size
         pos: root.pos
         orientation: "vertical"
+        Label:
+            size_hint_y: None
+            height: dp(30)
+            text: filechooser.path
+            shorten: True
+            shorten_from: 'left'
+            text_size: self.width, None
+            padding: dp(5), dp(5)
+            halign: 'left'
         BoxLayout:
             ListView:
                 id: drives_list
@@ -320,6 +354,15 @@
         size: root.size
         pos: root.pos
         orientation: "vertical"
+        Label:
+            size_hint_y: None
+            height: dp(30)
+            text: filechooser.path
+            shorten: True
+            shorten_from: 'left'
+            text_size: self.width, None
+            padding: dp(5), dp(5)
+            halign: 'left'
         BoxLayout:
             ListView:
                 id: drives_list
