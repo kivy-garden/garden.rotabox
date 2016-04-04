@@ -1087,10 +1087,13 @@ class Editor(RelativeLayout):
                 self.update()
                 self.draw()
                 return True
+        if mouse_btn == 'middle':
+            self.scat.scale = 1
+            return True
         if mouse_btn == 'right':
             self.deselect_polygon()
             super(Editor, self).on_touch_down(touch)
-            return
+            return True
         elif self.paint_btn.state != 'down':
             self.add_point(*pos)
             super(Editor, self).on_touch_down(touch)
@@ -1373,93 +1376,93 @@ class Editor(RelativeLayout):
 
 {0}{5}User's manual{7}{4}
 
-{0}{6}Open{7}{4} an {0}image{4} (.png), an image {0}atlas{4} (.atlas), or a previously
-    saved {0}project{4} file (.rbx).
+{0}{6}Open an image{7}{4} (.png), {0}{6}sequence{7}{4} (.atlas), or {0}{6}project file{7}{4} (.rbx):
     {0}Click{4} {1}Open{4} button {0}/{4} press {0}O{4} key.
 
-{0}{6}Add a point.{7}{4}
+{0}{6}Add a point{7}{4}:
     Each new point is spawn connected to the currently selected
     point and next to it. If no point is selected, new point starts a
     new polygon.
     {0}Click{4} on workspace {0}/{4} press {0}Insert{4} key {0}/{4} press {0}A{4} key.
 
-{0}{6}Select a point.{7}{4}
+{0}{6}Select a point{7}{4}:
     {0}Click{4} on a point.
-    {0}{6}Select next / previous{7}{4} point.
-        Press {0}Ctrl + Space{4} key {0}/{4} Press {0}Alt + Space{4} key.
-    {0}{6}Select different polygon{7}{4}.
-        Press {0}Shift + Space{4} key.
+    {0}{6}Select next / previous{7}{4} point:
+        Press {0}Ctrl + Space{4} key comb. {0}/{4} Press {0}Alt + Space{4} key comb.
+    {0}{6}Select different polygon{7}{4}:
+        Press {0}Shift + Space{4} key comb.
 
-{0}{6}Deselect{7}{4}.
+{0}{6}Deselect{7}{4}:
     {0}Click{4} {3}Deselect{4} button {0}/{4} {0}Right click{4} anywhere on canvas {0}/{4}
     Press {0}Space{4} key.
-    {0}{6}Reselect{7}{4} last point.
+    {0}{6}Reselect{7}{4} last point:
         Press {0}Space{4} key.
 
-{0}{6}Move a point.{7}{4}
+{0}{6}Move a point{7}{4}:
     {0}Click & drag{4} the point {0}/{4} Press {0}Up / Down / Left / Right{4} arrow
     keys. ({0}Ctrl +{4} for smaller steps. {0}Shift +{4} for bigger steps)
 
-{0}{6}Remove a point.{7}{4}
+{0}{6}Remove a point{7}{4}:
     {0}Click{4} {3}Remove point{4} button {0}/{4} Press {0}Delete{4} key.
 
-{0}{6}Remove a polygon.{7}{4}
+{0}{6}Remove a polygon{7}{4}:
     Delete the polygon that contains the selected point.
     {0}Click{4} {3}Remove polygon{4} button {0}/{4} Press {0}Shift + Delete{4} key comb.
 
-{0}{6}Checkpoint{7}{4} promotion.
+{0}{6}Checkpoint promotion{7}{4}:
     Promote selected point to checkpoint (or the opposite).
     {0}Click{4} {3}Checkpoint{4} button {0}/{4} Press {0}Home{4} key {0}/{4} Press {0}C{4} key.
 
-{0}{6}Navigate{7}{4} through an atlas' frames.
+{0}{6}Navigate an atlas' frames{7}{4}:
     {0}Click{4} {2}[size=15][font=guifont]e[/font]{7}{4} {0}/{4} {2}[size=15][font=guifont]r[/font]{7}{4} buttons {0}/{4} Press {0}< / >{4} or {0}PageDown / PageUp{4}
      keys.
-    {0}Clone points{4}. If {0}{6}Alt{7}{4} key is pressed, frame's points will
-    REPLACE destination frame's points.
+    {0}Clone points{4}:
+    If {0}{6}Alt{7}{4} key is pressed, frame's points will REPLACE destination
+    frame's points.
 
-{0}{6}Undo{7}{4} last action.
+{0}{6}Undo{7}{4} last action:
     {0}Click{4} {3}[font=guifont]q[/font]{4} button {0}/{4} Press {0}Ctrl + Z{4} key comb.
 
-{0}{6}Redo{7}{4} last undone action.
+{0}{6}Redo{7}{4} last undone action:
     {0}Click{4} {3}[font=guifont]w[/font]{4} button {0}/{4} {0}{6}Ctrl + Shift + Z{7}{4} key comb.
 
-{0}{6}Enable painting{7}{4} over the colliding areas.
-    A testing tool.
-    {0}Click{4} [color=#ff77ff]Paint test{4} button {0}/{4} Press {0}P{4} key.
-    {0}{6}Paint{7}{4} over the colliding areas.
-        {0}Click & drag{4} on the image, while in {0}paint{4} mode.
+{0}{6}Paint over the colliding areas{7}{4} for testing:
+    {0}Click & drag{4} on the image, while in {0}paint mode{4}.
+    Go in {0}{6}paint mode{7}{4}:
+        {0}Click{4} [color=#ff77ff]Paint test{4} button {0}/{4} Press {0}P{4} key.
 
-{0}{6}Output{7}{4} code to clipboard.
+{0}{6}Output code{7}{4}.
     Copy the resulting code to clipboard, to use in a Rotabox
-    widget.
+    widget:
     {0}Click{4} {1}to Clipboard{4} button {0}/{4} Press {0}Ctrl + C{4} key comb.
-    {0}{6}Language{7}{4} of the output code (Indentation difference fix).
+    {0}{6}Language{7}{4} of the output code (Indentation difference fix):
         {0}Click{4} {1}python / kvlang{4} button {0}/{4} Press {0}L{4} key.
 
-{0}{6}Zoom{7}{4} in / out the canvas.
+{0}{6}Zoom{7}{4} in / out the canvas:
     {0}Click{4} {2}[font=guifont]s[/font]{4} {0}/{4} {2}{5}[font=guifont]s[/font]{7}{4} buttons {0}/{4} {0}Mouse Scroll{4} {0}/{4} Press {0}{6}- / +{7}{4} keys.
+    Back to {0}{6}actual size{7}{4} (1:1):
+    {0}Middle click{4} anywhere on canvas.
 
-{0}{6}Adjust{7}{4} canvas position.
+{0}{6}Adjust canvas position{7}{4}:
     {0}Right click & drag{4} canvas.
 
-{0}{6}Point's context menu{7}{4}.
+{0}{6}Point's context menu{7}{4}:
     {0}Right click{4} on a point.
 
-{0}{6}Save{7}{4} project.
-    Open the save dialog.
-    {0}Click{4} {2}Save{4} button {0}/{4} Press {0}S{4} key.
-    {0}{6}Quick save{7}{4}. No save dialog is displayed.
+{0}{6}Save project{7}{4}:
+    {0}Click{4} {2}Save{4} button {0}/{4} Press {0}S{4} key (Opens a save dialog)
+    {0}{6}Quick save{7}{4} (No save dialog is displayed):
         Have {2}□{4} checked, {0}/{4} Press {0}Ctrl + S{4} key comb.
 
-    {0}Note{4}. Keep a project file with its image, to be able to open it.
+    {0}Note{4}: Keep a project file with its image, to be able to open it.
 
-    {0}Exit Save{4}. If not in Windows and the user exits the editor
+    {0}Exit Save{4}: If not in Windows and the user exits the editor
     without saving changes (not because of a crash), no save
     prompt is displayed. Instead, the project is automatically
     saved at the project's (or image's) location, as:
     '<project (or image) name>_RESCUED_ON_EXIT_.rbx'.
 
-{0}{6}Help{7}{4}
+{0}{6}Help{7}{4}:
     {0}Click{4} {2}{5}?{7}{4} button {0}/{4} Press {0}F1{4} key.
      ___________________________________________________________________________
   {0}*{4} Rotabox is a kivy widget, that has rotatable, fully
