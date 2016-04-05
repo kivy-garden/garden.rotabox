@@ -453,6 +453,7 @@ class Rotabox(Widget):
                     polygons = self.frames[self.image.source.split('/')[-1]]
                 else:
                     polygons = self.next_frame()
+                self.polygons = polygons
             else:
                 polygons = self.polygons
                 if motion or self.angle:
