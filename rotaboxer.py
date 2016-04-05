@@ -1071,7 +1071,7 @@ class Editor(RelativeLayout):
             widg = self.ids[entry]
             if ((isinstance(widg, (Button, ScrollLabel)) or entry == 'save') and
                     widg.collide_point(*widg.to_widget(*touch.pos))):
-                if mouse_btn != 'right':
+                if mouse_btn != 'right' and mouse_btn != 'middle':
                     super(Editor, self).on_touch_down(touch)
                     self.update()
                 self.save_state(switch=1)
@@ -1139,6 +1139,8 @@ class Editor(RelativeLayout):
                         if isinstance(child, Label):
                             if child.text.startswith('Project'):
                                 self.load_dialog()
+                            elif child.text.startswith('There'):
+                                self.quit()
                             elif child.text.startswith('Filename'):
                                 self.save_proj()
             return True
@@ -1328,7 +1330,7 @@ class Editor(RelativeLayout):
 
     def exit_check(self, *args, **kwargs):
         if self.changes > 1:
-            self.warn('Warning!', 'Project is not saved.\n'
+            self.warn('Warning!', 'There are unsaved changes.\n'
                       'Exit anyway?', self.quit)
             return True
         else:
