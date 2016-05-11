@@ -142,7 +142,7 @@ Basics:
         If [image] is not defined, [ratio] (if provided) can be used to keep the
         bounds relevant to something else.
 
-    [angle] AliasProperty (0):
+    [angle] NumericProperty (0):
         The angle of rotation.
 
     [origin] tuple (center):
@@ -157,7 +157,7 @@ Customizing the Collidable Area:
         With [custom_bounds] enabled, the default settings provide a colliding
         rectangle, the size of the widget, that follows its rotation.
 
-    [bounds] list or dict ([[[(0, 0), (1, 0), (1, 1), (0, 1)], [0, 2]]])
+    [bounds] ObjectProperty ([[[(0, 0), (1, 0), (1, 1), (0, 1)], [0, 2]]])
         This is how the custom bounds are being defined by the user.
         [bounds] can be a list of one or more polygons' data as seen in
         its default value, above. Here's another example with more polygons:
@@ -270,6 +270,7 @@ from itertools import izip
 __author__ = 'unjuan'
 __version__ = '0.8.1'
 
+
 class Rotabox(Widget):
     '''(See module's documentation).'''
 
@@ -340,13 +341,12 @@ class Rotabox(Widget):
         self.last_angle = 0
         self.last_pos = []
         self.radiangle = 0
-        self.current_frame = 0
-        self.draw_lines = []
         self.draw_color = Color(0.29, 0.518, 1, 1)
         self.rotate = Rotate(angle=0, origin=self.center)
         self.canvas.before.add(PushMatrix())
         self.canvas.before.add(self.rotate)
         self.canvas.after.add(PopMatrix())
+        self.draw_group = InstructionGroup()
         self.paint_group = InstructionGroup()
         self.bind(children=self._trigger_update,
                   parent=self._trigger_update,
@@ -390,13 +390,9 @@ class Rotabox(Widget):
             self.define_bounds()
 
         if self.draw_bounds:
+            self.canvas.after.add(self.draw_group)
             self.canvas.after.add(self.paint_group)
             self.canvas.after.add(self.draw_color)
-            for _ in self.polygons:
-                self.draw_lines.append(Line(close=True, dash_offset=3,
-                                       dash_length=5))
-            for line in self.draw_lines:
-                self.canvas.after.add(line)
 
     def scale(self, *args):
         '''Size and ratio updates.'''
@@ -448,35 +444,23 @@ class Rotabox(Widget):
         # Updating custom bounds
         if self.custom_bounds:
             if self.frames:
-                if self.image:
-                    # An identically keyed atlas file is assumed here.
-                    polygons = self.frames[self.image.source.split('/')[-1]]
-                else:
-                    polygons = self.next_frame()
-                self.polygons = polygons
-            else:
-                polygons = self.polygons
-                if motion or self.angle:
-                    self.radiangle = radians(self.angle) % 6.283
-                    self.update_bounds(polygons, motion, self.radiangle)
-            if self.scaled:
-                return
+                # An identically keyed atlas file is assumed here.
+                self.polygons = self.frames[self.image.source.split('/')[-1]]
+            if motion or self.angle:
+                self.radiangle = radians(self.angle) % 6.283
+                self.update_bounds(motion, self.radiangle)
+        if self.scaled:
+            return
 
-            # -------------------------- ON SIZE
-            self.scale()
-            self.scaled = True
-            if self.ready:
-                return
+        # -------------------------- ON SIZE
+        self.scale()
+        self.scaled = True
+        if self.ready:
+            return
 
         # ------------------------- INITIALLY
         self.prepare()
         self.ready = True
-
-    def next_frame(self):
-        '''Progressing the frames in case of a non-atlas animation'''
-
-        self.current_frame += 1
-        return self.frames[str(self.current_frame)]
 
     # ---------------------------------------------- BOUNDS & COLLISION
 
@@ -488,7 +472,7 @@ class Rotabox(Widget):
                 self.frames[key] = self.make_polygons(frame)
         if isinstance(self.bounds, list):  # Single image case
             self.polygons = self.make_polygons(self.bounds)
-        self.update_bounds(self.polygons, True)
+        self.update_bounds(True)
 
     def make_polygons(self, frame):
         '''Construction of polygon objects.'''
@@ -557,7 +541,7 @@ class Rotabox(Widget):
             pol.rel_pts = pol.ref_pts
             pol.points = pol.ref_pts
 
-    def update_bounds(self, polygons=None, motion=False, angle=0.):
+    def update_bounds(self, motion=False, angle=0.):
         '''Converting each polygon's [points] of reference, into polygons's
         [bounds], taking widget's motion and/or rotation into account.
         All polygons' [bounds] then become the widget's [bounds], from which
@@ -567,12 +551,13 @@ class Rotabox(Widget):
         if motion:
             # Optimization
             pos = self.pos
-            for pol in polygons:
+            for pol in self.polygons:
                 pol.rel_pts = [[x + y for x, y in izip(point, pos)]
-                                for point in pol.ref_pts]
+                               for point in pol.ref_pts]
             if not angle:
-                for pol in polygons:
+                for pol in self.polygons:
                     pol.points = pol.rel_pts
+
         # Rotating points to current angle.
         if angle:
             # Optimizations
@@ -581,11 +566,12 @@ class Rotabox(Widget):
             co = cos
             origin = self.origin
             to_rotated = self.to_rotated
-            for pol in polygons:
+
+            for pol in self.polygons:
                 pol.points = [to_rotated(point, origin, angle, at, si, co)
                               for point in pol.rel_pts]
         # The widget's bounds
-        bounds = [point for pol in polygons for point in pol.points]
+        bounds = [point for pol in self.polygons for point in pol.points]
         self.box = self.calc_box(bounds)
         self.points = bounds
 
@@ -746,11 +732,16 @@ class Rotabox(Widget):
         '''If [draw_bounds] is True, visualises the widget's bounds.
         For bounds testing.'''
 
+        self.draw_group.clear()
+
         try:
             for i in xrange(len(self.polygons)):
-                self.draw_lines[i].points = [n for point
-                                             in self.polygons[i].points
-                                             for n in point]
+
+                self.draw_group.add(Line(close=True, dash_offset=3,
+                                         dash_length=5,
+                                         points=[n for point
+                                                 in self.polygons[i].points
+                                                 for n in point]))
         except IndexError:
             pass
 
