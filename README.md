@@ -101,7 +101,7 @@ One can also use an .atlas spritesheet as an animation source and define differe
 **ratio** *float* (0.)  
 If *image* is not defined, *ratio* (if provided) can be used to keep the bounds relevant to something else.
 
-**angle** *AliasProperty* (0):  
+**angle** *NumericProperty* (0):  
 The angle of rotation.
 
 **origin** *tuple* (center):  
@@ -115,7 +115,7 @@ The user will have to enable Rotabox's ability to compensate for
 rotation and allow bounds modification.  
 With *custom_bounds* enabled, the default settings provide a colliding rectangle, the size of the widget, that follows its rotation.
 
-**bounds** *list* or *dict* (`[[[(0, 0), (1, 0), (1, 1), (0, 1)], [0, 2]]]`)  
+**bounds** *ObjectProperty* (`[[[(0, 0), (1, 0), (1, 1), (0, 1)], [0, 2]]]`)  
 This is how the custom bounds are being defined by the user.  
 It can be a *list* of one or more polygons' data as seen in its default value, above.  
 Here's another example with more polygons:
