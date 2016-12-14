@@ -1,0 +1,2 @@
+
+By putting Rotabox2 (in 'rotabox_for_scatter.py') in Scatter2 alternative (in 'scatter_for_rotabox.py'), as a child, you can have some basic scatter functionality while working with a Rotabox widget (normally incopatible with Scatter):
