@@ -268,7 +268,7 @@ from math import radians, atan2, sin, cos
 from itertools import izip
 
 __author__ = 'unjuan'
-__version__ = '0.8.2'
+__version__ = '0.8.5'
 
 
 class Rotabox(Widget):
@@ -276,6 +276,8 @@ class Rotabox(Widget):
 
     '''Rotation angle.'''
     angle = NumericProperty()
+
+    '''The widget's bounds' list (or a dictionary, in case of animation).'''
     bounds = ObjectProperty()
 
     # Locking size_hint property to None, None.
@@ -392,6 +394,9 @@ class Rotabox(Widget):
         if self.draw_bounds:
             self.canvas.after.add(self.paint_group)
             self.canvas.after.add(self.draw_color)
+            if self.frames:
+                self.polygons = self.frames[self.image.source.split('/')[-1]]
+
             for _ in self.polygons:
                 self.draw_lines.append(Line(close=True, dash_offset=3,
                                        dash_length=5))

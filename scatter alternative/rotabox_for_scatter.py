@@ -265,7 +265,7 @@ from math import radians, atan2, sin, cos
 from itertools import izip
 
 __author__ = 'unjuan'
-__version__ = '0.8.2s'
+__version__ = '0.8.5s'
 
 
 class Rotabox2(Widget):
@@ -393,9 +393,13 @@ class Rotabox2(Widget):
 
         if self.draw_bounds:
             self.canvas.after.add(self.draw_color)
+            if self.frames:
+                self.polygons = self.frames[self.image.source.split('/')[-1]]
+
             for _ in self.polygons:
                 self.draw_lines.append(Line(close=True, dash_offset=3,
                                        dash_length=5))
+
             for line in self.draw_lines:
                 self.canvas.after.add(line)
 
@@ -764,6 +768,7 @@ if __name__ == '__main__':
     blue: blue
     red: red
     Scatter2:
+        auto_bring_to_front: False
         Rotabox2:
             id: blue
             size: root.width * .6, root.height * .528

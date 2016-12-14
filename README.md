@@ -162,7 +162,7 @@ widget's `(right, top)` and `(.5, .5)` is widget's *center*.
 
 
 * A *list* of indices, determining which points of the previous
-*list*, will be used as checkpoints *{See Consept above)*.
+*list*, will be used as checkpoints *{See Concept above)*.
     
 **draw_bounds** boolean (False):  
 This option could be useful during the manipulation of the widget's
