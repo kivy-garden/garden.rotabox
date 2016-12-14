@@ -570,12 +570,11 @@ class Rotabox(Widget):
             co = cos
             origin = self.origin
             to_rotated = self.to_rotated
-
-            for pol in self.polygons:
+            for pol in polygons:
                 pol.points = [to_rotated(point, origin, angle, at, si, co)
                               for point in pol.rel_pts]
         # The widget's bounds
-        bounds = [point for pol in self.polygons for point in pol.points]
+        bounds = [point for pol in polygons for point in pol.points]
         self.box = self.calc_box(bounds)
         self.points = bounds
 
