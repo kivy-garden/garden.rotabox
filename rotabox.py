@@ -363,7 +363,7 @@ class Rotabox(Widget):
 
         if self.children:
             raise Exception('Rotabox can have one child only.')
-        return super(Rotabox, self).add_widget(widget, index)
+        super(Rotabox, self).add_widget(widget, index)
 
     def on_size(self, *args):
         '''Enables the ON SIZE section of the [update] method.'''
