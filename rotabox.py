@@ -277,7 +277,7 @@ class Rotabox(Widget):
         pivot = to_rotated(point, self.origin, -self.radiangle,
                            atan2, sin, cos)
         self.pivot_bond = ((pivot[0] - self.x) / float(self.width),
-                          (pivot[1] - self.y) / float(self.height))
+                           (pivot[1] - self.y) / float(self.height))
         self.pos = (self.x - (pivot[0] - point[0]),
                     self.y - (pivot[1] - point[1]))
 
@@ -448,7 +448,7 @@ class Rotabox(Widget):
         self.last_side = 0  # Segment mode
         self.curr_key = '00'  # Segment mode
         self.index = {}  # An index for segment mode to keep track of the
-                        # different polygons' ranges in [groups] (sides).
+                         # different polygons' ranges in [groups] (sides).
         self.draw_lines = ()
         self.box_lines = ()
         self.rotation = Rotate(angle=0, origin=self.center)
@@ -902,7 +902,7 @@ class Rotabox(Widget):
             return super(Rotabox, self).collide_widget(wid)
         try:  # Assuming the other widget is a Rotabox, too.
             that_box = wid.visible_bbox
-            that_box[0]
+            that_box[0]  # Optimization (trying to avoid 'if that_box:')
         except (AttributeError, IndexError):  # and if not..
             if self.segment_mode:
                 that_box = wid.x, wid.y, wid.right, wid.top
@@ -1363,7 +1363,7 @@ def collide_sides(sides, that_box, those_sides, last):
                     == (d3 * (v2[1] - v3[1]) - (v2[0] - v3[0]) * d4 > 0)):
                 continue
             elif ((d1 * (v3[1] - v1[1]) - (v3[0] - v1[0]) * d2 > 0)
-                    == (d1 * (v4[1] - v1[1]) - (v4[0] - v1[0]) * d2 > 0)):
+                  == (d1 * (v4[1] - v1[1]) - (v4[0] - v1[0]) * d2 > 0)):
                 continue
             try:
                 return [side.id, a_side.id, i]
