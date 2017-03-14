@@ -1,0 +1,98 @@
+
+Version split
+=============
+	Rotabox went through a major change, during version 0.9, that led to a version split.
+	Two new collision detection approaches, easier by far for the user, rendered the previous method obsolete.
+	So, while version 0.9 adds features to the earlier version, it's the last of its line.
+	It can be found in the *Rotabox.0.9.legacy* folder.
+	Version 0.10, carrying the new methods, will continue to be updated.
+
+
+Rotabox 0.10.0 changes
+======================	
+	
+	Changes
+	--------	
+		Two new collision detection methods replaced the original one, which is now discontinued.
+		
+		*custom_bounds*' form has been simplified ([[(0, 0), (1, 0), (1, 1), (0, 1)]])
+
+	Added
+	-----	
+		Open bounds support.
+	
+	Removed
+	-------	
+		Test painting of collidable areas. No need for it anymore, since checking strategy is no longer required.
+	
+	
+	
+	Rotaboxer (bounds editor) changes:
+	==================================
+	
+		** Selecting a polygon, places it last, in the resulting list of polygons.
+		This way, when editing is done, one can determine the order of polygons in the resulting "custom_bounds" by click-selecting them, one after the other, in the required order.
+	
+		Added
+		-----	
+			** Option to show points and polygons indices.
+			
+			** Color options for polygon drawing
+		
+		Removed
+		-------	
+			** Real-time checkpoint inspection removed. No checking strategy needed anymore.
+			
+			** Automatic checkpoint allocation removed. No checking strategy needed anymore.
+		
+			** Test painting of collidable areasremoved. No checking strategy needed anymore.
+
+
+
+
+
+Rotabox 0.9.0 changes
+=====================
+
+	Renamed
+	-------	
+		"allow_rotabox" BooleanProperty (True) (old name: "custom_bounds" (False))
+		
+		"custom_bounds" ObjectProperty ([[[(0, 0), (1, 0), (1, 1), (0, 1)], [0, 2]]]) (old name: "bounds")
+	
+	
+	
+	Added
+	-----	
+		** Touch manipulation added (drag, rotation and zoom).
+			Since, due to the differences between the Scatter and Rotabox concepts, a way to combine the two couldn't be found, Rotabox uses the Scatter widget's code, modified to act on the actual size and position of the widget and child(essential for accurate collision detection). 
+	 		It supports single and multitouch drag, rotation and scaling (the latter two use the *origin* property in the singletouch option).
+	
+		** "hidden_bounds" property added.
+			An option for the widget to hide certain polygons from others' checks and use them as one-way detectors. A two-way check is normally required for accurate collision readings, but a second layer of bounds can have its uses where accuracy is not an issue (e.g. in longer distances, acting as the 'perception' of an enemy sprite in a game).
+	
+		** "ready" BooleanProperty (False) added.
+			Offers a Rotabox setup completion event.
+	
+	
+	Rotaboxer (bounds editor) changes:
+	==================================
+	
+	Added
+	-----	
+		** Selecting a polygon, places it first, in the resulting list of polygons.
+			This way, when editing is done, one can determine the order of polygons in the resulting "custom_bounds" by click-selecting them, one after the other, in an order, opposite of the required.
+	
+		** Real-time checkpoint inspection added.
+			Promoting points to checkpoints in a polygon requires some understanding of the Rotabox collision detection concept and can be tricky or even impossible without adding extra points or breaking the polygon into simpler shapes, depending on the shape.
+	
+		** Automatic checkpoint allocation when "Checkpoint" button is checked. Experimental. Always paint-test the bounds after any checkpoint setup.
+	
+		** Transfering points from a polygon to another, added. 
+			Not a positional transfer but a change in linkage. Useful when breaking a polygon is required.
+
+		** Showing points and polygons indices.
+
+
+
+

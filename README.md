@@ -1,198 +1,203 @@
+
 # Rotabox
-#### 2D Rotative Collision Detection with Custom Bounds in kivy
+#### A kivy widget with rotative collision detection, custom bounds and multitouch interactivity.
 ![example](images/example.png)
 
-*If rotabox.py is run directly, shows an example, where two Rotabox widgets, collide with each other while rotating.*
+*An example can be seen if rotabox.py is run directly.*
 
-Rotabox is a *kivy widget* with fully customizable 2D bounds that follow its rotation.  
-The users shape their own, specific bounds, to fit an image (or a series of images in an animation), using polygons.  
-There's a handy editor for this, available in the package *(See Rotaboxer at the end of this document)*.  
+Rotabox is a *kivy widget* with customizable 2D bounds that follow its rotation.  
+The users can shape their own, specific bounds, to fit an image (or a series of images in an animation), using  a visual editor *(See Rotaboxer below)*.
+
+Rotabox also offers touch and multitouch interactivity (drag, rotation and scaling).
 
 ___
+## Features & particularities
+
+### Collision detection methods
+ Rotabox offers two collision approaches. 
+ They can't be both used at the same time on the same widget and, normally, collisions are thought to happen between widgets that use the same detection method. 
+ Combinations between the two are possible but more expensive.
+ 
+* Segment intersection detection (Default method):  
+    (See [Introduction to Algorithms 3rd Edition](https://mitpress.mit.edu/books/introduction-algorithms) (ch.33 Computational Geometry)  
+    and ['Line Segment Intersection' lecture notes by Jeff Erickson] (http://jeffe.cs.illinois.edu/teaching/373/notes/x06-sweepline.pdf))
+    * Supports open-shaped bounds, down to just a single line segment.
+    * Interacts with Rotaboxes that use either collision method (more expensive if method is different) and regular widgets.
+    * In a positive check against a Rotabox of the same method, instead of *True*, both the intersected sides' indices and their respecrive polygons' indices are returned, in the form of [(this_pol_i, this_side_i), (that_pol_i, that_side_i)]. 
+
+* Point membership in polygon detection:  
+    (See [Even-odd rule](https://en.wikipedia.org/wiki/Even%E2%80%93odd_rule "")) 
+    * It can be faster when dealing with complex shapes, as it can benefit from breaking these shapes into more simple ones when making the bounds in the editor.
+    * Requires mutual collision checks (Both parties should check for an accurate reading).
+    * Interacts with Rotaboxes that use the same collision method (and regular widgets but behaving, itself, like a regular widget while doing so).
+    * In a positive check against a Rotabox of the same method, instead of *True*, the checker's collided polygon's index is returned, in a tuple (i) to always evaluate to True.
+
+### Open collision bounds (Segment method only)
+ If a polygon is open, the segment between the last and first points of the polygon is not considered in the collision checks.
+ Since the segment collision method is only concerned with the polygon's sides, a widget can 'enter' an open polygon, passing through the opening, and then hit the back wall from inside, for example.
+ Note that *collide_point* doesn't work for an open polygon (i.e. an open polygon cannot be touched).
+
+### Hidden collision bounds
+ Rotabox can hide certain polygons from others' collision checks and use them as one-way detectors.
+ A second layer of bounds can have its uses (e.g. in longer distances, acting as the 'perception' of an enemy sprite in a game).
+ 
+### Touch interactivity 
+ Since, due to the differences between the Scatter and Rotabox concepts, a way to combine the two couldn't be found, Rotabox uses the Scatter widget's code, modified to act on the actual size and position of the widget and child (essential for accurate collision detection). 
+ It supports single and multitouch drag, rotation and scaling (the latter two use the *origin* property in the singletouch option).
+	
+### Restrictions
+* In order to be able to maintain any arbitrary aspect ratio (e.g. its image's ratio), Rotabox can't use the *size_hint* property.  
+ Try using *size* property in a relative manner instead  
+ (e.g. `self.width = self.parent.width * .5`).
+
+
+* Rotabox can only have one child. It can be an *Image* but not necessarily. 
+ Grandchildren, however, can collide independently, only if the widget is not rotated ( *angle* must be *0* ).
+
+
+_______
+# API
+
 ## Basic Usage
 To use Rotabox, just include *rotabox.py* in your project files.
 
 ```python
     from rotabox import Rotabox
-    
-    rb = Rotabox()
-    rb.image = Image(source='img.png')
-    rb.add_widget(rb.image)
-    rb.custom_bounds = True
-    rb.bounds = [[[(0.015, 0.981), (0.019, 0.342), 
-                   (0.212, 0.034), (0.21, 0.427), 
-                   (0.48, -0.001), (0.714, 0.342), 
-                   (0.985, 0.75), (0.462, 0.668), 
-                   (0.262, 0.978), (0.265, 0.599)], 
-                  [9, 1, 3, 7, 5]]]
+    ...
+	    rb = Rotabox()
+	    rb.add_widget(Image(source='img.png'))
+	    self.add_widget(rb)
 ```
-
-* Make a Rotabox instance.
-* Add an *Image* widget to the instance and assign it to the instance's *image* attribute. 
-* Switch the instance's *custom_bounds* flag to *True*. 
-* Set the instance's *bounds*:
-    * Define a polygon that covers the instance's area that needs to be collision-aware (e.g. its image's opaque area), as a *list* of point tuples *(See API below)*.  
-    * Promote some of the polygon's vertices to checkpoints *(See Concept below)* and make a second list with their indices.
-    * Put the two lists in another *list* for the polygon.
-    * Repeat for additional polygons and put them all in yet another *list* and assign it to the instance's *bounds* attribute *(See API below)*.
- 
-Use *angle* and *origin* attributes for rotation.  
-
-___
-## Concept
-
-To detect membership of a point in a polygon's area, Rotabox uses the polygon's sides in the following manner:
-  
-Consider a rectangle in a plane full of collision events.
-
-![tut1](images/tut1.png)
-
-Think of a polygon's vertex (e.g. C in the example) and its two adjacent sides (BC and CD) as a whole (a corner).  
-If the vertex is a checkpoint, the corner's legs become rays, extending to infinity.  
-A corner like that, divides the whole plane into two regions.  
-The checkpoint then, keeps the region containing the polygon and discards the rest.  
-
-![tut2](images/tut2.png)
-
-The collidable area is what's left when all the checkpoints are done discarding. 
-
-![tut3](images/tut3.png)
-
-There's no need for the remaining two vertices of the above rectangle to be checkpoints, since their legs are already parts of A and C corners.
-
-#####NOTE: As a general rule, at least one of any two consecutive vertices should be a checkpoint, but they don't both have to be.
-
-In the above example it's just a matter of efficiency, but in certain cases there are vertices that can't be checkpoints.  
-Consider the concave polygon below, to see the problem:
-
-![tut4](images/tut4.png)
-
-Vertices C and E cannot be checkpoints because one of each's legs is crossing the polygon. (e.g. E's horizontal leg excludes the lower part).    
-So, starting with D and having to skip C and E, B and F must be checkpoints.  
-A, could be a checkpoint too, but it's not required, since its legs are already parts of B and F.
-
-![tut5](images/tut5.png)
-
-#####NOTE: For a vertex to qualify as a checkpoint, none of its adjacent sides should cross the polygon area if extended.  
-
-More than one polygons can be defined for Rotabox *bounds*.  
-So, a complex shape can always be broken into more simple ones.
-
-_______
-# API
-
-## Restrictions
-
-* In order to be able to maintain any arbitrary aspect ratio (e.g. its image's ratio), Rotabox doesn't use the *size_hint* property.  
- (Of course, *size* property can always be used in a relative manner  
- e.g. `self.width = self.parent.width * .5`).  
- Also, there's no need to specify a *(None, None)* value for the *size_hint*.
-
-* Rotabox can only have one child. It can be an *Image* but not nesessarily.
+The instance's default bounding box will be a rectangle, the size of the image, that rotates with it.
+Use *angle* and *origin* properties for rotation.
 
 ## Basics
 
-**image** *Image* (None):  
-Rotabox's only child will most likely be an Image.  
-If so, it will be assigned to this attribute by default.  
-Otherwise, the user can specify an *image* somewhere in the widget's tree, that the custom bounds will use as a reference.  
-One can also use an .atlas spritesheet as an animation source and define different bounds for each frame *(See bounds below)*.
-
-**ratio** *float* (0.)  
-If *image* is not defined, *ratio* (if provided) can be used to keep the bounds relevant to something else.
-
 **angle** *NumericProperty* (0):  
-The angle of rotation.
+ The angle of rotation in degrees.
 
-**origin** *tuple* (center):  
-The point of rotation.
+**origin** *AliasProperty* (center):  
+ Sets the point of rotation. Default position is the widget's center.
 
+**image** *ObjectProperty*:  
+ Rotabox's only child will most likely be an *Image*.  
+ If not so, Rotabox will attempt to find the topmost Image in its tree and assign it to this property by default.  
+ Otherwise, the user can specify an *image* somewhere in the widget's tree, that the custom bounds will use as a reference.  
+ An .atlas spritesheet can also be used as an animation source and different bounds can be defined for each frame.
+
+**aspect_ratio** *NumericProperty* (0.)  
+ If not provided, *image*'s ratio is going to be used.
 
 ## Customizing the Collidable Area
 
-**custom_bounds** *boolean* (False):  
-The user will have to enable Rotabox's ability to compensate for
-rotation and allow bounds modification.  
-With *custom_bounds* enabled, the default settings provide a colliding rectangle, the size of the widget, that follows its rotation.
+> **Rotaboxer** Visual editor.
+>  An easy way to define the *custom_bounds* of Rotabox. 
+>  To use it, run *rotaboxer.py* directly. It can be found at the repository root.
+>  Open a *.png* image or an *.atlas* file in the editor, draw bounds for it and export the resulting code to clipboard, to use in a Rotabox widget.
+> 
+> ![editor](images/editor.png)
 
-**bounds** *ObjectProperty* (`[[[(0, 0), (1, 0), (1, 1), (0, 1)], [0, 2]]]`)  
-This is how the custom bounds are being defined by the user.  
-It can be a *list* of one or more polygons' data as seen in its default value, above.  
-Here's another example with more polygons:
+**custom_bounds** *ObjectProperty* (`[[(0, 0), (1, 0), (1, 1), (0, 1)]]`)  
+ This is where the custom bounds are being defined.  
+ It's also the output of the Rotaboxer tool ( *above* ).
+ It can be a *list* of one or more polygons' data as seen in its default value, above. 
+ 
+ Each polygon's data is a *list* of point tuples `(x, y)`.  
+ Points' values should be expressed as percentages of the widget's *width* and *height*, where `(0, 0)` is widget's `(x, y)`, `(1, 1)` is widget's `(right, top)` and `(.5, .5)` is widget's *center*.
+ 
+ Here's another example with more polygons:
 
 ```python
-self.bounds = [[[(0.013, 0.985), (0.022, 0.349),
-                 (0.213, 0.028), (0.217, 0.681)],
-                [1, 3]],
-               [[(0.267, 0.346), (0.483, -0.005),
+self.bounds = [[(0.013, 0.985), (0.022, 0.349),
+                (0.213, 0.028), (0.217, 0.681)],
+               [(0.267, 0.346), (0.483, -0.005),
                  (0.691, 0.316), (0.261, 0.975)],
-                [0, 2]],
-               [[(0.539, 0.674), (0.73, 0.37),
-                 (0.983, 0.758)],
-                [2, 0]]]
+               [(0.539, 0.674), (0.73, 0.37),
+                 (0.983, 0.758)]]
 ```
 
-It can also be a *dictionary*, in case of animated bounds (different
-bounds for different frames of an animation sequence in an *.atlas* file),
-where the *keys* correspond to the frame names in the *.atlas* file and each *item* is a *list* of one or more polygons' data like the above.  
+*custom_bounds* can also be a *dictionary*, in case of animated bounds (different bounds for different frames of an animation sequence in an *.atlas* file), where the *keys* correspond to the frame names in the *.atlas* file and each *item* is a *list* of one or more polygons' data like the above.
+  
 Here's an example of such a *dictionary*:
 
 ```python
-self.bounds = {'00': [[[(0.201, 0.803), (0.092, 0.491),
-                        (0.219, 0.184), (0.526, 0.064)],
-                       [1, 3]],
-                      [[(0.419, 0.095), (0.595, 0.088),
-                        (0.644, 0.493)],
-                       [1, 2]]],
-               '01': [[[(0.357, 0.902), (0.17, 0.65),
-                        (0.184, 0.337), (0.343, 0.095),
-                        (0.644, 0.098)],
-                       [0, 2, 4]]],
-               '02': [[[(...
+self.bounds = {'00': [[(0.201, 0.803), (0.092, 0.491),
+                       (0.219, 0.184), (0.526, 0.064)],
+                      [(0.419, 0.095), (0.595, 0.088),
+                        (0.644, 0.493)]],
+               '01': [[(0.357, 0.902), (0.17, 0.65),
+                       (0.184, 0.337), (0.343, 0.095),
+                       (0.644, 0.098)]],
+               '02': [[(...
                         ...
-                       ... etc ]]]}
+                       ... etc ]]}
 ```
+ 
+**hidden_bounds** *ListProperty*:
+ If a polygon's index is in this list, the polygon becomes 'invisible' to the collision checks of others.
 
-Each polygon's data is a *list* consisting of two lists:
-
-* A *list* of point tuples `(x, y)` that constitute the polygon.  
-Points' values should be expressed as percentages of the widget's
-*width* and *height*, where `(0, 0)` is widget's `(x, y)`, `(1, 1)` is
-widget's `(right, top)` and `(.5, .5)` is widget's *center*.
-
-
-* A *list* of indices, determining which points of the previous
-*list*, will be used as checkpoints *{See Concept above)*.
+**segment_mode** *BooleanProperty* (True):
+ Toggle between the two collision detection methods *(See Features above)*.
     
-**draw_bounds** boolean (False):  
-This option could be useful during the manipulation of the widget's
-bounds, as it makes the bounds visible and lets the user paint with
-the mouse on the collidable areas, to test them.  
-There's also a visual editor available in the package *(See Rotaboxer below)*.
+**open_bounds** *ListProperty*:
+ If a polygon's index is in this list, the segment between the last and first points of the polygon is not considered in the collision checks (segment_mode only).
 
-## Extra features
+    
+## Touch interface
+Most of it is familiar from the Scatter widget.
 
-**Polygon-specific collision:**  
-In a positive collision check, instead of *True*, the number of the colliding polygon is returned (i.e. 1 for the first, 2 for the second, and so on).  
-So, if there are more than one polygons, the user can check weather a specific polygon is colliding:
+**touched_to_front** *BooleanProperty* (False)
+ If touched, the widget will be pushed to the top of the parent's widget tree.
 
-```python
-    if self.collide_widget(stone) == 1:
-        print("I've been hit in the head!")
-```
+**collide_after_children** *BooleanProperty* (True)
+ If True, limiting the touch inside the bounds will be done after dispaching the touch to the child and grandchildren, so even outside the bounds they can still be touched.
+*IMPORTANT NOTE: Grandchildren, inside or outside the bounds, can collide independently ONLY if widget is NOT ROTATED ( *angle* must be *0* ).*
 
-**Non-Rotabox widgets' classification:** *(Optional)*  
-There might be cases where Rotabox will have to determine how a certain *non-Rotabox widget* will be treated (collision-wise).  
-Two possible cases are addressed in the code (but out-commended) using the arbitrary flags *bullet* and *platform*.  
-#####NOTE: These flags must be defined by the user in said widget.
+### Single touch definitions:
+**single_drag_touch** *BoundedNumericProperty* (1, min=1)
+ How many touches will be treated as one single drag touch.
+ 
+**single_trans_touch** *BoundedNumericProperty* (1, min=1)
+ How many touches will be treated as one single transformation touch.
+ 
+### Single touch operations:
+**allow_drag_x** *BooleanProperty* (False)
+**allow_drag_y** *BooleanProperty* (False)
+**allow_drag** *AliasProperty*
 
-___
-# Rotaboxer
-## A visual editor for Rotabox bounds
+**single_touch_rotation** *BooleanProperty* (False)
+ Rotate around *origin*.
+ 
+**single_touch_scaling** *BooleanProperty* (False)
+ Scale around *origin*.
+ 
+### Multitouch rotation/scaling:
+**multi_touch_rotation** *BooleanProperty* (False)
+**multi_touch_scaling** *BooleanProperty* (False)
+ 
 
-![editor](images/editor.png)
+## Utility interface
 
-A convenient way to shape the colliding areas of a Rotabox widget, especially when dealing with multiple frames of a spritesheet animation.  
-Open a *.png* image or an *.atlas* file in the editor, work on its bounds and, when ready, copy the resulting code to clipboard for use in a Rotabox widget.
+**scale** *AliasProperty* 
+ Current widget's scale, based on widget's original size (User's initial *size* input or *image*'s *texture_size* ).
+ 
+**scale_min** *NumericProperty* (0.01)
+**scale_max** *NumericProperty* (1e20)
+ Optional scale restrictions.
 
-To use it, run *rotaboxer.py* directly. It can be found at the package root.  
+**pivot** *ReferenceListProperty*
+ The point of rotation and scaling.
+ While *origin* property sets *pivot*'s position, relatively to widget's *size* and *pos*, *pivot* itself can be used to position the widget, much like *pos* or *center*.
+
+**ready** *BooleanProperty* (False)
+ Useful to read in cases where the widget is stationary. 
+ Signifies the completion of the widget's initial preparations.
+ 
+**draw_bounds** *BooleanProperty* (False):  
+ This option could be useful during testing, as it makes the widget's bounds visible.  
+
+_______
+> **Note:** *Rotabox* is being developed in Windows and hasn't really been tested on a mobile platform.
+
+*python 2.7.10 - kivy 1.9.0 - unjuan 2017*
+

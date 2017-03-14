@@ -1,822 +1,1495 @@
-
 '''
 
 ROTABOX                                           kivy 1.9.0 - python 2.7.10
 =======
-    Rotabox is kivy widget with fully customizable 2D bounds that follow its
-    rotation.
-    The users shape their own, specific bounds, to fit an image (or a series
-    of images in an animation), using polygons.
-    There's a handy editor for this, available in the package (See Rotaboxer
-    at the end of this document).
 
-____________
-Basic Usage:
+Rotabox is a *kivy widget* with customizable 2D bounds that follow its rotation.
+The users can shape their own, specific bounds, to fit an image (or a series of
+images in an animation), using  a visual editor (See Rotaboxer below).
 
+Rotabox also offers multitouch interactivity (drag, rotation and scaling).
+
+==========================
+Features & particularities
+
+Collision detection methods:
+    Rotabox offers two collision approaches.
+    They can't be both used at the same time on the same widget and, normally,
+    collisions are thought to happen between widgets that use the same detection
+    method.
+    Combinations between the two are possible but rather heavier.
+
+* Segment intersection detection (Default option):
+    (See 'Introduction to Algorithms 3rd Edition', ch.33 Computational Geometry
+    (https://mitpress.mit.edu/books/introduction-algorithms)
+    and 'Line Segment Intersection' lecture notes by Jeff Erickson
+    (http://jeffe.cs.illinois.edu/teaching/373/notes/x06-sweepline.pdf))
+    
+    * Supports open-shaped bounds, down to just a single line segment.
+    
+    * Interacts with Rotaboxes that use either collision method
+        (more expensive if method is different) and regular widgets.
+    
+    * In a positive check against a Rotabox of the same method, instead of
+        *True*, both the intersected sides' indices and their respecrive
+        polygons' indices are returned, in the form of:
+        [(this_pol_i, this_side_i), (that_pol_i, that_side_i)].
+
+* Point membership in polygon detection:
+    (See 'Even-odd rule'(https://en.wikipedia.org/wiki/Even%E2%80%93odd_rule "")
+    
+    * It can be less expensive when dealing with complex shapes (more than 15
+        segments), as it can benefit from breaking these shapes into more simple
+        ones when making the bounds in the editor.
+    
+    * Requires mutual collision checks (Both parties should check for an
+        accurate reading).
+        
+    * Interacts with Rotaboxes that use the same collision method (and regular
+        widgets but behaving, itself, like a regular widget while doing so).
+        
+    * In a positive check against a Rotabox of the same method, instead of
+        *True*, the checker's collided polygon's index is returned, in a tuple 
+        (i) to always evaluate to True.
+
+Hidden collision bounds
+    Rotabox can hide certain polygons from others' collision checks and use them
+    as one-way detectors.
+    A second layer of bounds can have its uses (e.g. in longer distances, acting
+    as the 'perception' of an enemy sprite in a game).
+
+Touch interactivity
+    Since, due to the differences between the Scatter and Rotabox concepts, a
+    way to combine the two couldn't be found, Rotabox uses the Scatter widget's
+    code, modified to act on the actual size and position of the widget and
+    child(essential for accurate collision detection).
+    It supports single and multitouch drag, rotation and scaling (the latter two
+    use the *origin* property in the singletouch option).
+
+Restrictions
+* In order to be able to maintain any arbitrary aspect ratio (e.g. its image's
+    ratio), Rotabox can't use the *size_hint* property.
+    Try using *size* property in a relative manner instead
+    (e.g. `self.width = self.parent.width * .5`).
+
+* Rotabox can only have one child. It can be an *Image* but not necessarily.
+    Grandchildren, however, can collide independently, only if the widget is not
+    rotated ( *angle* must be *0* ).
+
+===
+API
+
+Basic Usage
     To use Rotabox, just include *rotabox.py* in your project files.
 
         from rotabox import Rotabox
-
+        ...
         rb = Rotabox()
-        rb.image = Image(source='img.png')
-        rb.add_widget(rb.image)
-        rb.custom_bounds = True
-        rb.bounds = [[[(0.015, 0.981), (0.019, 0.342),
-                       (0.212, 0.034), (0.21, 0.427),
-                       (0.48, -0.001), (0.714, 0.342),
-                       (0.985, 0.75), (0.462, 0.668),
-                       (0.262, 0.978), (0.265, 0.599)],
-                      [9, 1, 3, 7, 5]]]
+        rb.add_widget(Image(source='img.png'))
+        self.add_widget(rb)
 
-    * Make a Rotabox instance.
-    * Add an Image widget to the instance and assign it to the instance's
-      [image] attribute.
-    * Switch the instance's [custom_bounds] flag to True.
-    * Set the instance's [bounds]:
-        * Define a polygon that covers the instance's area that needs to be
-          collision-aware (e.g. its image's opaque area), as a list of point
-          tuples (See API below).
-        * Promote some of the polygon's vertices to checkpoints (See Concept
-          below) and make a second list with their indices.
-        * Put the two lists in another list for the polygon.
-        * Repeat for additional polygons and put them all in yet another list
-          and assign it to the instance's [bounds] attribute (See API below).
+The instance's default bounding box will be a rectangle, the size of the image,
+that rotates with it.
+Use *angle* and *origin* properties for rotation.
 
-    Use [angle] and [origin] attributes for rotation.
+_________
+Interface
 
-________________
-Rotabox Concept:
+**angle** *NumericProperty* (0):
+    The angle of rotation in degrees.
 
-    To detect membership of a point in a polygon's area, Rotabox uses the
-    polygon's sides in the following manner:
-    Think of a polygon's vertex (e.g. C in the example) and its two adjacent
-    sides (BC and CD) as a whole (a corner).
-    If  the vertex is a checkpoint, the corner's legs become rays, extending to
-    infinity.
-    A corner like that, divides the whole plane into two regions.
-    The checkpoint then keeps the region containing the polygon and discards
-    the rest.
-    The collidable area is what's left when all the checkpoints are done
-    discarding.
-    In the example below, three positions are examined for a possible collision
-    with a rectangular polygon, with two checkpoints A and B.
-                                                          .
-                                                          .
-                         A o------------------------------. . . . . . . . .
-                           |                              |
-                           |                              |
-              (1)          |         (2)                  |
-                           |                              |     (3)
-                           |                              |
-                           |                              |
-         1. Colliding      |     2. Colliding             | 3. Colliding
-       according to B      |   according to both!         | according to A
-      (A's 'False' area)   | (Legitimate collision)       |(B's 'False' area)
-        . . . . . . . . . .|------------------------------o
-                           .                               B
-                           .
-                           .
-    There's no need for the remaining two vertices of the above rectangle to be
-    checkpoints, since their legs are already parts of A and C corners.
+**origin** *AliasProperty* *tuple* (center):
+    Sets the point of rotation. Default position is the widget's center.
 
-    NOTE: As a general rule, at least one of any two consecutive vertices should
-    be a checkpoint, but they don't both have to be.
+**image** *ObjectProperty*:
+    Rotabox's only child will most likely be an *Image*.
+    If not so, Rotabox will attempt to find the topmost *Image* in its tree and
+    assign it to this property.
+    Otherwise, the user can specify an *image* somewhere in the widget's tree,
+    that the custom bounds will use as a reference.
+    An .atlas spritesheet can also be used as an animation source and different
+    bounds can be defined for each frame.
 
-    In the above example it's just a matter of economy, but in certain cases
-    there are vertices that can't be checkpoints.
+**aspect_ratio** *NumericProperty* (0.)
+    If not provided, *image*'s ratio is going to be used.
 
-    Consider the concave polygon below, to see the problem:
-                                                  .
-                                                  .
-                        A ________________________.F
-                         |                        |
-                         |                        |
-                         |                        |
-                         |                        |
-                    . . .|. . . . . . ____________|
-                         |           |D            E
-                         |           |
-                         |           |
-                         |           |
-                         |           |
-                         |___________|
-                        B             C
+_______________________________
+Customizing the Collidable Area
 
-    Vertices C and E cannot be checkpoints because one of each's legs is
-    crossing the polygon. (e.g. E's horizontal leg excludes the lower part).
-    So, starting with D and having to skip C and E, B and F must be checkpoints.
-    A, could be a checkpoint too, but it's not required, since its legs are
-    already parts of B and F.
+**Rotaboxer** Visual editor.
+    A convenient way to define the *custom_bounds* of a Rotabox widget.
+    To use it, run *rotaboxer.py* directly. It can be found at the repository
+    root.
+    Open a *.png* image or an *.atlas* file in the editor, draw bounds for it
+    and export the resulting code to clipboard, to use in a Rotabox widget.
 
-    NOTE: For a vertex to qualify as a checkpoint, none of its adjacent sides
-    should cross the polygon area if extended.
+**custom_bounds** *ObjectProperty* (`[[(0, 0), (1, 0), (1, 1), (0, 1)]]`)
+    This is where the custom bounds are being defined.
+    It's also the output of the Rotaboxer tool (above).
+    It can be a *list* of one or more polygons' data as seen in its default
+    value, above.
 
-    More than one polygons can be defined for Rotabox bounds.
-    So, a complex shape can always be broken into more simple ones.
+    Each polygon's data is a *list* of point tuples `(x, y)`.
+    Points' values should be expressed as percentages of the widget's *width*
+    and *height*, where `(0, 0)` is widget's `(x, y)`, `(1, 1)` is widget's
+    `(right, top)` and `(.5, .5)` is widget's *center*.
 
-____
-API:
-_____________
-Restrictions:
+    Here's another example with more polygons:
 
-    In order to be able to maintain any arbitrary aspect ratio
-    (e.g. its image's ratio), Rotabox doesn't use the [size_hint] property.
-    Of course, [size] property can always be used in a relative manner
-    (e.g. self.width = self.parent.width * .5).
-    Also, there's no need to specify a (None, None) value for the [size_hint]).
+        self.bounds = [[(0.013, 0.985), (0.022, 0.349),
+                        (0.213, 0.028), (0.217, 0.681)],
+                       [(0.267, 0.346), (0.483, -0.005),
+                         (0.691, 0.316), (0.261, 0.975)],
+                       [(0.539, 0.674), (0.73, 0.37),
+                         (0.983, 0.758)]]
 
-    Rotabox can only have one child. It can be an Image but not necessarily.
+    *custom_bounds* can also be a *dictionary*, in case of animated bounds
+    (different bounds for different frames of an animation sequence in an
+    *.atlas* file), where the *keys* correspond to the frame names in the
+    *.atlas* file and each *item* is a *list* of one or more polygons' data
+    like the above.
+    Here's an example of such a *dictionary*:
 
-_______
-Basics:
+        self.bounds = {'00': [[(0.201, 0.803), (0.092, 0.491),
+                               (0.219, 0.184), (0.526, 0.064)],
+                              [(0.419, 0.095), (0.595, 0.088),
+                                (0.644, 0.493)]],
+                       '01': [[(0.357, 0.902), (0.17, 0.65),
+                               (0.184, 0.337), (0.343, 0.095),
+                               (0.644, 0.098)]],
+                       '02': [[(...
+                                ...
+                               ... etc ]]}
 
-    [image] Image (None):
-        Rotabox's only child will most likely be an Image.
-        If so, it will be assigned to this attribute by default.
-        Otherwise, the user can explicitly define an [image] somewhere in the
-        widget's tree, that the custom bounds will use as a reference.
-        One can also use an .atlas spritesheet as an animation source and define
-        different bounds for each frame (See [bounds] below).
+**hidden_bounds** *ListProperty*:
+    If a polygon's index is in this list, the polygon becomes 'invisible' to the
+    collision checks of others.
 
-    [ratio] float (0.)
-        If [image] is not defined, [ratio] (if provided) can be used to keep the
-        bounds relevant to something else.
+**segment_mode** *BooleanProperty* (True):
+    Toggle between the two collision detection methods *(See Features above)*.
 
-    [angle] NumericProperty (0):
-        The angle of rotation.
+**open_bounds** *ListProperty*:
+    If a polygon's index is in this list, the segment between the last and first
+    points of the polygon is not considered in the collision checks
+    (segment_mode only).
 
-    [origin] tuple (center):
-        The point of rotation.
-
-________________________________
-Customizing the Collidable Area:
-
-    [custom_bounds] boolean (False):
-        The user will have to enable Rotabox's ability to compensate for
-        rotation and allow bounds modification.
-        With [custom_bounds] enabled, the default settings provide a colliding
-        rectangle, the size of the widget, that follows its rotation.
-
-    [bounds] ObjectProperty (list or dict) ([[[(0, 0), (1, 0), (1, 1), (0, 1)], [0, 2]]])
-        This is how the custom bounds are being defined by the user.
-        [bounds] can be a list of one or more polygons' data as seen in
-        its default value, above. Here's another example with more polygons:
-
-            self.bounds = [[[(0.013, 0.985), (0.022, 0.349),
-                             (0.213, 0.028), (0.217, 0.681)],
-                            [1, 3]],
-                           [[(0.267, 0.346), (0.483, -0.005),
-                             (0.691, 0.316), (0.261, 0.975)],
-                            [0, 2]],
-                           [[(0.539, 0.674), (0.73, 0.37),
-                             (0.983, 0.758)],
-                            [2, 0]]]
-
-        It can also be a dictionary, in case of animated bounds (different
-        bounds for different frames of an animation sequence in an .atlas file),
-        where the keys correspond to the frame names in the .atlas file and each
-        item is a list of one or more polygons' data like the above.
-        Here's an example of such a dictionary:
-
-            self.bounds = {'00': [[[(0.201, 0.803), (0.092, 0.491),
-                                    (0.219, 0.184), (0.526, 0.064)],
-                                   [1, 3]],
-                                  [[(0.419, 0.095), (0.595, 0.088),
-                                    (0.644, 0.493)],
-                                   [1, 2]]],
-                           '01': [[[(0.357, 0.902), (0.17, 0.65),
-                                    (0.184, 0.337), (0.343, 0.095),
-                                    (0.644, 0.098)],
-                                   [0, 2, 4]]],
-                           '02': [[[(...
-                                    ...
-                                   ... etc ]]]}
-
-        Each polygon's data consist of two lists:
-
-            1. A list of point tuples (x, y) that constitute the polygon.
-            Points' values should be expressed as percentages of the widget's
-            width and height, where (0, 0) is widget's (x, y), (1, 1) is
-            widget's (right, top) and (.5, .5) is widget's center.
-
-            2. A list of indices, determining which points of the previous
-            list, will be used as checkpoints {See Consept above).
-
-            IMPORTANT: A checkpoint must be able to have the whole polygon
-                between its adjacent sides to qualify (See 'Rotabox concept'
-                below).
-
-    [draw_bounds] boolean (False):
-        This option could be useful during the manipulation of the widget's
-        bounds, as it makes the bounds visible and lets the user paint with
-        the mouse on the collidable areas, to test them.
-        There's also a visual editor available (See Rotaboxer below).
+**draw_bounds** *BooleanProperty* (False):
+    This option could be useful during testing, as it makes the widget's bounds
+    visible.
 
 _______________
-Extra features:
+Touch interface
+    Most of it is familiar from the Scatter widget.
 
-    Polygon-specific collision:
-        In a positive collision check, instead of True, the number of the
-        colliding polygon is returned (i.e. 1 for the first, 2 for the second,
-        and so on).
-        So, if there are more than one polygons, the user can check weather a
-        specific polygon is colliding:
+**touched_to_front** *BooleanProperty* (False)
+    If touched, the widget will be pushed to the top of the parent widget tree.
 
-            if self.collide_widget(stone) == 1:
-                print("I've been hit in the head!")
+**collide_after_children** *BooleanProperty* (True)
+    If True, limiting the touch inside the bounds will be done after dispaching
+    the touch to the child and grandchildren, so even outside the bounds they
+    can still be touched.
+    *IMPORTANT NOTE: Grandchildren, inside or outside the bounds, can collide
+    independently ONLY if widget is NOT ROTATED ( *angle* must be *0* ).*
 
-    Non-Rotabox widgets classification:
-        There might be cases where Rotabox will have to determine how a certain
-        non-Rotabox widget will be treated (collision-wise).
-        Two possible cases are addressed in the code (but out-commended) using
-        the arbitrary flags [bullet] and [platform].
+Single touch definitions:
 
-        (NOTE: THE FLAGS MUST BE DEFINED BY THE USER IN SAID WIDGET).
+**single_drag_touch** *BoundedNumericProperty* (1, min=1)
+    How many touches will be treated as one single drag touch.
 
-__________
-Rotaboxer:
-    (A visual editor for Rotabox bounds)
+**single_trans_touch** *BoundedNumericProperty* (1, min=1)
+ How many touches will be treated as one single transformation touch.
 
-    A convenient way to shape the colliding areas of a Rotabox widget,
-    especially when dealing with multiple frames of a spritesheet animation.
-    The user opens a .png image or an .atlas file in the editor, works on its
-    bounds and, when ready, copies the resulting code to clipboard for use in a
-    Rotabox widget.
+Single touch operations:
 
-    To use it run rotaboxer.py directly.
-    It can be found next to this module at the package root.
+**allow_drag_x** *BooleanProperty* (False)
+**allow_drag_y** *BooleanProperty* (False)
+**allow_drag** *AliasProperty*
+
+**single_touch_rotation** *BooleanProperty* (False)
+    Rotate around *origin*.
+
+**single_touch_scaling** *BooleanProperty* (False)
+    Scale around *origin*.
+
+Multitouch rotation/scaling:
+
+**multi_touch_rotation** *BooleanProperty* (False)
+**multi_touch_scaling** *BooleanProperty* (False)
+
+_________________
+Utility interface
+
+**scale** *AliasProperty*
+    Current widget's scale.
+
+**scale_min** *NumericProperty* (0.01)
+**scale_max** *NumericProperty* (1e20)
+    Optional scale restrictions.
+
+**pivot** *ReferenceListProperty*
+    The point of rotation and scaling.
+    While *origin* property sets *pivot*'s position, relatively to widget's
+    *size* and *pos*, *pivot* itself can be used to position the widget, much
+    like *pos* or *center*.
+
+**ready** *BooleanProperty* (False)
+    Useful to read in cases where the widget is stationary.
+    Signifies the completion of the widget's initial preparations.
 
 ___________________________________________________________________________
-If this module is run directly, shows an example, where two Rotabox widgets,
-of different configurations, collide with each other while rotating. The code
-of the example is below, at the end of the document, and is not an essential
-part of the module.
+A Rotabox example can be seen if this module is run directly.
 
-unjuan 2016
+unjuan 2017
 '''
 
 from kivy.uix.widget import Widget
 from kivy.uix.image import Image
 from kivy.clock import Clock
+from kivy.vector import Vector
 from kivy.graphics import PushMatrix, Rotate, PopMatrix
-from kivy.graphics.instructions import InstructionGroup
 from kivy.graphics.context_instructions import Color
 from kivy.graphics.vertex_instructions import Line
 from kivy.properties import (NumericProperty, ReferenceListProperty,
-                             AliasProperty, ObjectProperty)
+                             AliasProperty, ObjectProperty, BooleanProperty,
+                             ListProperty, BoundedNumericProperty)
 from math import radians, atan2, sin, cos
 from itertools import izip
 
 __author__ = 'unjuan'
-__version__ = '0.8.5'
+__version__ = '0.10.0'
+
+__all__ = 'Rotabox'
 
 
 class Rotabox(Widget):
-    '''(See module's documentation).'''
+    '''See module's documentation.'''
 
-    '''Rotation angle.'''
-    angle = NumericProperty()
+    __events__ = ('on_transform_with_touch', 'on_touched_to_front')
 
-    '''The widget's bounds' list (or a dictionary, in case of animation).'''
-    bounds = ObjectProperty()
+    # ------------------------------------------------------ ROTATION INTERFACE
+    '''Angle of Rotation.'''
+    angle = NumericProperty(0)
 
-    # Locking size_hint property to None, None.
-    def get_size_hint_x(self):
-        return None
-    def set_size_hint_x(self, value):
-        if value is not None:
-            raise Exception("Rotabox can't use size_hint.")
-    size_hint_x = AliasProperty(get_size_hint_x, set_size_hint_x)
-    def get_size_hint_y(self):
-        return None
-    def set_size_hint_y(self, value):
-        if value is not None:
-            raise Exception("Rotabox can't use size_hint.")
-    size_hint_y = AliasProperty(get_size_hint_y, set_size_hint_y)
-    size_hint = ReferenceListProperty(size_hint_x, size_hint_y)
+    def get_origin(self):
+        return self.pivot
 
-    class Polygon(object):
-        '''An internal object to keep each polygon's data.'''
+    def set_origin(self, point):
+        pivot = to_rotated(point, self.origin, -self.radiangle,
+                           atan2, sin, cos)
+        self.pivot_bond = ((pivot[0] - self.x) / float(self.width),
+                          (pivot[1] - self.y) / float(self.height))
+        self.pos = (self.x - (pivot[0] - point[0]),
+                    self.y - (pivot[1] - point[1]))
 
-        __slots__ = ('hints', 'ref_pts', 'rel_pts', 'points',
-                     'check_ids', 'rays', 'neg_dir')
+    '''Sets the point of rotation. Default value is the widget's center.'''
+    origin = AliasProperty(get_origin, set_origin)
 
-        def __init__(self):
-            self.hints = []  # User points.
-            self.ref_pts = []  # Scaled points.
-            self.rel_pts = []  # Translated points.
-            self.points = []  # Final points.
-            self.check_ids = []  # checkpoints' indices.
-            self.rays = []  # checkpoints' adjacent sides' angles.
-            self.neg_dir = False  # Clockwise-defined polygon.
+    # ----------------------------------------------------- COLLISION INTERFACE
+    '''The widget's aspect ratio. If not defined, image's ratio will be used.'''
+    aspect_ratio = NumericProperty(0.)
+
+    '''This should be the image that any custom bounds are meant for.
+    If not defined, widget will try to locate the topmost image in its tree.'''
+    image = ObjectProperty()
+
+    '''Custom bounds' definition interface. (See module's documentation).'''
+    custom_bounds = ObjectProperty([[(0, 0), (1, 0), (1, 1), (0, 1)]])
+
+    '''If a polygon's index is in this list, the polygon becomes 'invisible'
+    to the collision checks of others.'''
+    hidden_bounds = ListProperty()
+
+    '''Collision detection method switch (see documentation above).'''
+    segment_mode = BooleanProperty(True)
+
+    '''(segment_mode only) If a polygon's index is in this list, the segment
+    between the last and first points of the polygon is not considered in the
+    collision checks.'''
+    open_bounds = ListProperty()
+
+    '''Enables widget's advanced collision detection. If False, widget will
+    collide as a normal (non-Rotabox) widget.'''
+    allow_rotabox = BooleanProperty(True)
+
+    # --------------------------------------------------------- TOUCH INTERFACE
+    '''Allow touch translation on the X axis.'''
+    allow_drag_x = BooleanProperty(False)
+
+    '''Allow touch translation on the Y axis.'''
+    allow_drag_y = BooleanProperty(False)
+
+    def get_allow_drag(self):
+        return self.allow_drag_x, self.allow_drag_y
+
+    def set_allow_drag(self, value):
+        if type(value) in (list, tuple):
+            self.allow_drag_x, self.allow_drag_y = value
+        else:
+            self.allow_drag_x = self.allow_drag_y = bool(value)
+
+    '''Allow touch translation on the X or Y axis.'''
+    allow_drag = AliasProperty(get_allow_drag, set_allow_drag,
+                               bind=('allow_drag_x', 'allow_drag_y'))
+
+    '''Allow rotation around [origin]..'''
+    single_touch_rotation = BooleanProperty(False)
+
+    '''Allow scaling around [origin].'''
+    single_touch_scaling = BooleanProperty(False)
+
+    '''Allow multitouch rotation. [origin] is defined each time by the touch.'''
+    multi_touch_rotation = BooleanProperty(False)
+
+    '''Allow multitouch scaling. [origin] is defined each time by the touch.'''
+    multi_touch_scaling = BooleanProperty(False)
+
+    '''How many touches will be treated as one single drag touch.'''
+    single_drag_touch = BoundedNumericProperty(1, min=1)
+
+    '''How many touches will be treated as one single rotation/scaling touch.'''
+    single_trans_touch = BoundedNumericProperty(1, min=1)
+
+    '''If touched, the widget will be pushed to the top of parent widget tree.'''
+    touched_to_front = BooleanProperty(False)
+
+    '''If True, limiting the touch inside the bounds will be done after
+    dispaching the touch to the child and grandchildren, so even outside the
+    bounds they can still be touched.
+    IMPORTANT NOTE: Grandchildren, inside or outside the bounds, can collide
+        independently ONLY if widget is NOT ROTATED ([angle] must be 0).'''
+    collide_after_children = BooleanProperty(False)
+
+    # ------------------------------------------------------- UTILITY INTERFACE
+    def get_scale(self):
+        return float(self.width) / self.original_size[0]
+
+    def set_scale(self, scale):
+        if scale < self.scale_min:
+            scale = self.scale_min
+        elif scale > self.scale_max:
+            scale = self.scale_max
+
+        pivot = self.pivot[:]
+        self.size = (scale * self.original_size[0],
+                     scale * self.original_size[1])
+        self.pivot = pivot
+        if self.initial_scale:
+            return
+        self.initial_scale = self.scale
+
+    '''Widget's current scale. Calculated from [original_size] (user's input
+    [size] or [image]'s [texture_size]). Used for touch scaling but it can be an
+    alternative to [size].'''
+    scale = AliasProperty(get_scale, set_scale, bind=('width', 'height',
+                                                      'original_size'))
+    '''Minimum scale allowed.'''
+    scale_min = NumericProperty(0.01)
+
+    '''Maximum scale allowed.'''
+    scale_max = NumericProperty(1e20)
+
+    def get_pivot_x(self):
+        return self.x + self.width * self.pivot_bond[0]
+
+    def set_pivot_x(self, value):
+        if self.width > 1:
+            self.x = value - self.width * self.pivot_bond[0]
+        elif value > 1:
+                self.temp_piv_x = value
+    pivot_x = AliasProperty(get_pivot_x, set_pivot_x,
+                            bind=('x', 'width', 'pivot_bond'))
+
+    def get_pivot_y(self):
+        return self.y + self.height * self.pivot_bond[1]
+
+    def set_pivot_y(self, value):
+        if self.height > 1:
+            self.y = value - self.height * self.pivot_bond[1]
+        elif value > 1:
+                self.temp_piv_y = value
+    pivot_y = AliasProperty(get_pivot_y, set_pivot_y,
+                            bind=('y', 'height', 'pivot_bond'))
+
+    '''Point of rotation and scaling.
+    While [origin] property sets [pivot] to any arbitrary position, [pivot]
+    itself can be used to position the widget, much like [pos] or [center].'''
+    pivot = ReferenceListProperty(pivot_x, pivot_y)
+
+    '''Signifies the completion of the widget's initial preparations.'''
+    ready = BooleanProperty(False)
+
+    '''Enables bounds visualization (for testing).'''
+    draw_bounds = BooleanProperty(False)
 
     def __init__(self, **kwargs):
-        self._trigger_update = Clock.create_trigger(self.update, -1)
+        self.size = [1, 1]
+        self.temp_piv_x = self.temp_piv_y = 0
+        self.initial_scale = 0
+        self.touches = []
+        self.last_touch_pos = {}
+        self.trigger_update = Clock.create_trigger(self.update, -1)
         super(Rotabox, self).__init__(**kwargs)
-
-        '''Rotation point.'''
-        self.origin = self.center
-
-        '''If an image is assigned, it will determine the widget's ratio.'''
-        self.image = None
-
-        '''Arbitrary aspect ratio (if no image assigned).'''
-        self.ratio = 0.
-
-        '''Enable custom bounds. If False, widget will collide as a
-        non-Rotabox widget.'''
-        self.custom_bounds = False
-
-        '''Custom bounds' definition interface. Can be a list in the form of
-        [polygons[polygon[points],[chk_points]]] (like the rectangle used
-        below as default) or a dictionary containing several lists like this,
-        with keys matching the keys in an .atlas file.'''
-        self.bounds = [[[(0, 0), (1, 0), (1, 1), (0, 1)], [0, 2]]]
-
-        '''Enable bounds visualization and mouse painting (for testing).'''
-        self.draw_bounds = False
-
-        self.frames = {}
-        self.polygons = []
-        self.points = []
-        self.box = [0, 0, 0, 0]
-        self.last_angle = 0
-        self.last_pos = []
-        self.radiangle = 0
-        self.draw_lines = []
+        self.sized_by_img = False
+        self.ratio = 1
+        self.child = None
         self.draw_color = Color(0.29, 0.518, 1, 1)
-        self.rotate = Rotate(angle=0, origin=self.center)
+        self.paint_color = Color(.7, .3, 0, 1)
+        self.last_pos = [0, 0]
+        self.last_size = self.size[:]
+        self.radiangle = 0.
+        self.prepared = False
+        self.frames = {}
+        self.groups = ()  # polygons if point mode - sides if segment mode
+        self.bbox = ()
+        self.visible_bbox = ()
+        self.visible_points = []  # Point mode
+        self.plain_sides_len = 0  # Segment mode
+        self.visible_sides = ()  # Segment mode
+        self.last_side = 0  # Segment mode
+        self.curr_key = '00'  # Segment mode
+        self.index = {}  # An index for segment mode to keep track of the
+                        # different polygons' ranges in [groups] (sides).
+        self.draw_lines = ()
+        self.box_lines = ()
+        self.rotation = Rotate(angle=0, origin=self.center)
         self.canvas.before.add(PushMatrix())
-        self.canvas.before.add(self.rotate)
+        self.canvas.before.add(self.rotation)
         self.canvas.after.add(PopMatrix())
-        self.paint_group = InstructionGroup()
-        self.bind(children=self._trigger_update,
-                  parent=self._trigger_update,
-                  size=self._trigger_update,
-                  pos=self._trigger_update,
-                  angle=self._trigger_update)
-        self.scaled = False
-        self.ready = False
+        self.bind(children=self.trigger_update,
+                  parent=self.trigger_update,
+                  pos=self.trigger_update,
+                  pos_hint=self.trigger_update,
+                  angle=self.trigger_update,
+                  image=self.on_reset,
+                  aspect_ratio=self.on_reset,
+                  custom_bounds=self.on_reset,
+                  hidden_bounds=self.on_reset)
 
-    def add_widget(self, widget, index=0, **kwargs):
-        '''Birth control'''
-
+    def add_widget(self, widget, **kwargs):
+        '''Birth control.'''
         if self.children:
-            raise Exception('Rotabox can have one child only.')
-        super(Rotabox, self).add_widget(widget, index)
+            raise Exception('Rotabox can only have one child.')
+        super(Rotabox, self).add_widget(widget)
+        self.child = self.children[0]
 
     def on_size(self, *args):
         '''Enables the ON SIZE section of the [update] method.'''
-        self.scaled = False
-
-    def on_bounds(self, *args):
-        '''Enables bounds reset.'''
-
-        self.scaled = False
         self.ready = False
-        self._trigger_update()
+        self.trigger_update()
+
+    def on_reset(self, *args):
+        '''Enables bounds reset.'''
+        self.prepared = False
+        self.ready = False
+        self.trigger_update()
 
     def prepare(self):
         '''Initial preparations.'''
-
+        scale = self.initial_scale
         if not self.image:
-            # Auto assigning [self.image] if child is an image.
-            if self.children and isinstance(self.children[0], Image):
-                self.image = self.children[0]
+            # Trying to auto-assign [image] property if not specified.
+            self.image = locate_images(self)
         if self.image:
+            self.image.texture.mag_filter = 'nearest'
             self.image.allow_stretch = True
-            # self.image.texture.mag_filter = 'nearest'
-            self.image.bind(source=self.scale)
-        # Building widget's bounds.
-        if self.custom_bounds:
+            # In case of a stationary widget with animated bounds.
+            self.image.bind(source=self.trigger_update)
+
+            # Calculating widget's size from available inputs.
+            if (not (self.width - scale > 1 or self.height - scale > 1)
+                    or self.sized_by_img):
+                self.original_size = self.image.texture_size
+                if not scale:
+                    scale = 1
+                self.size = [self.original_size[0] * scale,
+                             self.original_size[1] * scale]
+                if self.sized_by_img:
+                    dw = self.width - self.last_size[0]
+                    dh = self.height - self.last_size[1]
+                    self.pivot = (self.pivot_x - dw * .5,
+                                  self.pivot_y - dh * .5)
+                self.sized_by_img = True
+            else:
+                self.original_size = self.size[:]
+                if scale:
+                    self.size = [self.size[0] * scale,
+                                 self.size[1] * scale]
+        else:
+            self.original_size = self.size[:]
+            if not scale:
+                scale = 1
+            self.size = [self.size[0] * scale,
+                         self.size[1] * scale]
+
+        # Setting the widget's ratio.
+        if not self.aspect_ratio:
+            if self.image and self.sized_by_img:
+                self.ratio = self.image.image_ratio
+            else:
+                self.ratio = self.width / float(self.height)
+        else:
+            self.ratio = self.aspect_ratio
+
+        # If [size] is not specified explicitly by the user, any input values
+        # for [pivot] are withheld in [temp_piv_x] and [temp_piv_y], until
+        # [size] gets its values from [image]. Then, [pivot] gets the withheld
+        # values, here.
+        if self.temp_piv_x or self.temp_piv_y:
+            self.pivot = self.temp_piv_x, self.temp_piv_y
+            self.temp_piv_x = self.temp_piv_y = 0
+
+        if self.allow_rotabox:
+            # Building widget's bounds.
             self.define_bounds()
 
-        if self.draw_bounds:
-            self.canvas.after.add(self.paint_group)
-            self.canvas.after.add(self.draw_color)
-            if self.frames:
-                self.polygons = self.frames[self.image.source.split('/')[-1]]
+            # Setting canvas in case of test drawing
+            if self.draw_bounds:
+                self.set_draw()
 
-            for _ in self.polygons:
-                self.draw_lines.append(Line(close=True, dash_offset=3,
-                                       dash_length=5))
-            for line in self.draw_lines:
-                self.canvas.after.add(line)
+        self.trigger_update()
 
-    def scale(self, *args):
-        '''Size and ratio updates.'''
-        # Adjusting the widget's ratio if [self.image] or [self.ratio]
-        if self.image:
-            self.ratio = self.image.image_ratio
+    def update_size(self):
+        '''Size, scale and ratio handling.'''
+        width, height = self.size
+        if round(self.ratio, 3) != round(width / float(height), 3):
+            # Adjusting size to fit ratio
+            last_size = self.last_size
+            if abs(width - last_size[0]) > abs(height - last_size[1]):
+                self.size = width, float(width) / self.ratio
+            else:
+                self.size = height * self.ratio, height
+            if last_size != [1, 1]:
+                dw = self.width - last_size[0]
+                dh = self.height - last_size[1]
+                # Moving widget to keep pivot's position the same, to originate
+                # the resizing from pivot.
+                self.pivot = (self.pivot_x - dw * .5, self.pivot_y - dh * .5)
 
-        if self.ratio and self.height:
-            w, h = self.size
-            ratio = self.ratio
-            if abs(ratio - w / float(h)) > .01:
-                self.size = ((h * ratio, h) if h < w / ratio
-                             else (w, w / ratio))
-
-        # Adjusting the child's or image's size
-        if self.image:
-            self.image.size = self.size
-        elif self.children:
-            self.children[0].size = self.size
-
-        # Updating widget's bounds
-        if self.custom_bounds:
+        if self.allow_rotabox:
+            # Scaling widget's bounds
             if self.frames:
                 for frame in self.frames.itervalues():
-                    self.scale_bounds(self.size, frame)
+                    scale_bounds(self.size, frame)
             else:
-                self.scale_bounds(self.size, self.polygons)
+                scale_bounds(self.size, self.groups)
+
+            self.update_bounds(self.groups, True, self.radiangle, self.pos)
+
+        if self.children:
+            # Adjusting the child's size to fit widget's
+            self.child.size = self.size
+
+        self.last_size = self.size[:]
+        self.trigger_update()
 
     def update(self, *args):
-        '''The central updater.
-        Maintains the widget's point of rotation, verifies motion and updates
-        the child's (or image's if different) position and the custom bounds.
-        Also runs the [scale] method on size and the [prepare] method initially.
+        '''Updates the widget's angle, point of rotation, bounds and child's
+        position.
+        Also runs the [scale] method on size change and the [prepare] method
+        initially and on reset.
         '''
+        self.angle %= 360
+        angle = self.angle
+        if angle:
+            # Updating the rotation instruction, in canvas.before.
+            self.rotation.origin = self.origin
+            self.rotation.angle = angle
 
-        if self.angle:
-            # Updating internal point and angle of rotation
-            self.rotate.origin = self.origin
-            self.rotate.angle = self.angle
-
-        motion = self.pos != self.last_pos
+        pos = self.pos
+        motion = (abs(pos[0] - self.last_pos[0]) > .1
+                  or abs(pos[1] - self.last_pos[1]) > .1)
         if motion:
-            # Updating the child's or image's position
-            if self.image:
-                self.image.pos = self.pos
-            elif self.children:
-                self.children[0].pos = self.pos
-            self.last_pos = self.pos[:]
-        # Updating custom bounds
-        if self.custom_bounds:
-            if self.frames:
-                # An identically keyed atlas file is assumed here.
-                self.polygons = self.frames[self.image.source.split('/')[-1]]
-            if motion or self.angle:
-                self.radiangle = radians(self.angle) % 6.283
-                self.update_bounds(self.polygons, motion, self.radiangle)
-        if self.scaled:
-            return
+            # Updating the child's position
+            if self.children:
+                self.child.pos = pos
+            self.last_pos = pos[:]
 
-        # -------------------------- ON SIZE
-        self.scale()
-        self.scaled = True
+        if self.allow_rotabox:
+            # Updating custom bounds
+            if self.frames:
+                if self.segment_mode:
+                    # An identically keyed atlas file is assumed here.
+                    curr_key = self.image.source.split('/')[-1]
+                    self.groups = self.frames[curr_key]
+                    self.plain_sides_len = self.index[curr_key][0]
+                    self.curr_key = curr_key
+                else:
+                    # An identically keyed atlas file is assumed here.
+                    self.groups = self.frames[self.image.source.split('/')[-1]]
+                motion = True
+            if angle or motion:
+                self.radiangle = radians(angle)
+                self.update_bounds(self.groups, motion, self.radiangle, pos)
+            if self.draw_bounds:
+                self.draw()
+
         if self.ready:
             return
-
-        # ------------------------- INITIALLY
+        # -------------------------- ON SIZE
+        if self.prepared:
+            self.update_size()
+            self.ready = True
+            return
+        # ------------------------- ON RESET & INITIALLY
         self.prepare()
-        self.ready = True
+        self.prepared = True
 
-    # ---------------------------------------------- BOUNDS & COLLISION
-
-    def define_bounds(self):
-        '''Organising the data from the user's [self.bounds] hints.'''
-
-        if isinstance(self.bounds, dict):   # Animation case
-            for key, frame in self.bounds.iteritems():
-                self.frames[key] = self.make_polygons(frame)
-        if isinstance(self.bounds, list):  # Single image case
-            self.polygons = self.make_polygons(self.bounds)
-        self.update_bounds(self.polygons, True)
-
-    def make_polygons(self, frame):
-        '''Construction of polygon objects.'''
-
-        polygons = []
-        for p in frame:
-            pol = self.Polygon()
-            pol.hints = p[0]
-            pol.check_ids = p[1]
-            polygons.append(pol)
-
-        # Scaling the polygons' points of reference.
-        self.scale_bounds(self.size, polygons)
-        # Finding out the direction in which each polygon was defined
-        self.trace_polygons(polygons)
-
-        return polygons
-
-    @staticmethod
-    def trace_polygons(polygons):
-        '''Determining the direction in which each polygon is defined (i.e.
-        clockwise or not), essential for making sure that collision checks are
-        pointed towards the inside of the polygon.
-        Also, storing segment angles, to use in collision checks later.'''
-
-        pi = 3.142
-        for pol in polygons:
-            diffs = 0
-            last_angle = None
-            for i in xrange(len(pol.ref_pts)):
-                j = i + 1 if i + 1 < len(pol.ref_pts) else 0
-                # Polygon segment's angle (angle difference from x axis).
-                angle = atan2(pol.ref_pts[j][1] - pol.ref_pts[i][1],
-                              pol.ref_pts[j][0] - pol.ref_pts[i][0])
-                if last_angle is None:
-                    # For the first comparison use the last segment's angle
-                    last_angle = atan2(pol.ref_pts[i][1] - pol.ref_pts[-1][1],
-                                       pol.ref_pts[i][0] - pol.ref_pts[-1][0])
-                # Calculating each two segments' difference in angle
-                diff = angle - last_angle
-                # Normalizing the angles difference
-                if diff > pi:
-                    diff -= pi
-                elif diff < -pi:
-                    diff += pi
-                diffs += diff
-                # Storing the angles of the couples of segments that contain
-                # a checkpoint.
-                if i in pol.check_ids:
-                    pol.rays.append([last_angle + pi, angle])
-                else:
-                    pol.rays.append(None)
-                last_angle = angle
-            # Determining the direction of the polygon
-            if diffs < 0:
-                pol.neg_dir = True
-
-    @staticmethod
-    def scale_bounds(size, polygons):
-        '''Scaling the polygons' points of reference.'''
-
-        for pol in polygons:
-            pol.ref_pts = [tuple(x * y for x, y in izip(point, size))
-                           for point in pol.hints]
-            # Populating these, also, in case of a still widget.
-            pol.rel_pts = pol.ref_pts
-            pol.points = pol.ref_pts
-
-    def update_bounds(self, polygons, motion=False, angle=0.):
-        '''Converting each polygon's [points] of reference, into polygons's
-        [bounds], taking widget's motion and/or rotation into account.
-        All polygons' [bounds] then become the widget's [bounds], from which
-        its [box] derive.'''
-
-        # Translating points to current position.
-        if motion:
-            # Optimization
-            pos = self.pos
-            for pol in polygons:
-                pol.rel_pts = [[x + y for x, y in izip(point, pos)]
-                                for point in pol.ref_pts]
-            if not angle:
-                for pol in polygons:
-                    pol.points = pol.rel_pts
-
-        # Rotating points to current angle.
-        if angle:
-            # Optimizations
-            at = atan2
-            si = sin
-            co = cos
-            origin = self.origin
-            to_rotated = self.to_rotated
-            for pol in polygons:
-                pol.points = [to_rotated(point, origin, angle, at, si, co)
-                              for point in pol.rel_pts]
-        # The widget's bounds
-        bounds = [point for pol in polygons for point in pol.points]
-        self.box = self.calc_box(bounds)
-        self.points = bounds
-
-        if self.draw_bounds:
-            self.draw()
-
-    @staticmethod
-    def to_rotated(point, orig, angle, arctan, sine, cosine):
-        '''Tranlating each polygon's point acccording to rotation.'''
-
-        dx = point[0] - orig[0]
-        dy = point[1] - orig[1]
-        distance = (dx * dx + dy * dy) ** .5
-        angle = (angle + arctan(dy, dx)) % 6.283
-
-        return ((orig[0] + distance * cosine(angle)),
-                (orig[1] + distance * sine(angle)))
-
-    @staticmethod
-    def calc_box(bounds):
-        '''An axis-aligned bounding box, calculated from widget extremities.'''
-
-        if bounds:
-            left, bottom = map(min, *bounds)
-            right, top = map(max, *bounds)
-            return [left, bottom, right, top]
-        return []
-
-    def collide_widget(self, widget):
-        '''Axis-aligned bounding box intersection tests.
-        Each incoming widget's rough borders are checked against this widget's
-        rough borders and if colliding, its bounds' points or vertices are
-        filtered, before being sent to [collide_point] for fine checking.'''
-
-        if self.box:
-            this_box = self.box
-            try:  # Assuming that widget is a Rotabox with custom bounds.
-                that_box = widget.box
-                # First check ([box] vs [box])
-                if this_box[2] < that_box[0]:
-                    return False
-                if this_box[0] > that_box[2]:
-                    return False
-                if this_box[3] < that_box[1]:
-                    return False
-                if this_box[1] > that_box[3]:
-                    return False
-                points = widget.points
-            except (AttributeError, IndexError):  # ..but it's not.
-                # First check ([box] vs Widget's bbox)
-                if this_box[2] < widget.x:
-                    return False
-                if this_box[0] > widget.right:
-                    return False
-                if this_box[3] < widget.y:
-                    return False
-                if this_box[1] > widget.top:
-                    return False
-
-                ''' Optional conditionals to determine how Rotabox will treat
-                certain non-Rotabox widgets (See 'Extra features' in module's
-                documentation).
-
-                [bullet] is a non-Rotabox widget, small enough to be treated
-                    as a single point.
-                    (ATTRIBUTE MUST BE DEFINED BY THE USER IN SAID WIDGET).
-                '''
-                # try:
-                #     if widget.bullet:
-                #         if self.collide_point(points=widget.center):
-                #             return True
-                # except AttributeError:
-                #     pass
-
-                '''
-                [platform] is a non-Rotabox widget whose vertices are too far
-                    apart and should be treated in a coarse manner.
-                    (ATTRIBUTE MUST BE DEFINED BY THE USER IN SAID WIDGET)
-                '''
-                # try:
-                #     if widget.platform:
-                #         return True
-                # except AttributeError:
-                #     pass
-
-                points = [(widget.x, widget.y), (widget.right, widget.y),
-                          (widget.right, widget.top), (widget.x, widget.top)]
-
-            # Second check (Filter individual points)
-            hot_points = [point for point in points if
-                          this_box[0] <= point[0] <= this_box[2] and
-                          this_box[1] <= point[1] <= this_box[3]]
-
-            # Third check (Fine checking most probable points).
-            return self.collide_point(alien_points=hot_points)
+    def set_draw(self):
+        self.canvas.after.add(self.draw_color)
+        if self.frames:
+            pols = max(
+                [len(frame) for frame in self.custom_bounds.itervalues()])
+            if self.segment_mode:
+                sides = max(
+                    [len(pol) for frame in self.custom_bounds.itervalues() for
+                     pol in frame])
         else:
-            # Falling back to original Widget's checks.
-            return super(Rotabox, self).collide_widget(widget)
-
-    def collide_point(self, x=0, y=0, alien_points=None):
-        '''Also serves as the [collide_widget]'s fine section.
-            Supports lists of points as well.'''
-
-        if self.custom_bounds:
-            # If checking for a touch
-            if not alien_points:
-                alien_points = [(x, y)]
-            angle = self.radiangle
-            # The other widget's points
-            for alien in alien_points:
-                for pol in self.polygons:
-                    # For each point with its index in [check_ids]:
-                    for index in pol.check_ids:
-                        checkpoint = pol.points[index]
-                        # Calculating the angle of the ray that starts from
-                        # the checkpoint and passes through the incoming point.
-                        ray0 = atan2(alien[1] - checkpoint[1],
-                                     alien[0] - checkpoint[0]) % 6.283  # 2pi
-                        # Updating the angles of checkpoint's adjacent sides.
-                        ray1 = (pol.rays[index][0] + angle) % 6.283
-                        ray2 = (pol.rays[index][1] + angle) % 6.283
-                        # Considering polygon's direction.
-                        if pol.neg_dir:
-                            ray1, ray2 = ray2, ray1
-                        # Normalizing comparison if the cartesian circle seam
-                        # (360 = 0) is between the check-angles.
-                        if not ray1 > ray2:
-                            ray1 = (ray1 + 6.293 - ray2) % 6.283
-                            ray0 = (ray0 + 6.293 - ray2) % 6.283
-                            ray2 = .01
-                        # Checking weather the alien-angle is between the
-                        # check-angles.
-                        if not ray1 > ray0 > ray2:
-                            break
-                    else:  # If no break
-                        '''Returning the number of the colliding polygon instead 
-                        of True. (index + 1, to always evaluate to True).'''
-                        if pol.check_ids:  # Polygons without checkpoints skip 
-                                           # the 'loop, causing false positives.
-                            return self.polygons.index(pol) + 1
-            # If all broke
-            return False
+            pols = len(self.custom_bounds)
+            if self.segment_mode:
+                sides = len(self.groups)
+        if self.segment_mode:
+            if self.open_bounds:
+                self.draw_lines += tuple(
+                    Line(close=True, dash_offset=3, dash_length=5) for _ in
+                    xrange(sides))
+            else:
+                self.draw_lines += tuple(
+                    Line(dash_offset=3, dash_length=5) for _ in xrange(pols))
+            self.box_lines += tuple(
+                Line(close=True, dash_offset=3, dash_length=5) for _ in
+                xrange(sides))
         else:
-            # Falling back to original Widget's check.
-            return super(Rotabox, self).collide_point(x, y)
+            self.draw_lines += tuple(
+                Line(close=True, dash_offset=3, dash_length=5) for _ in
+                xrange(pols))
+            self.box_lines += tuple(
+                Line(close=True, dash_offset=3, dash_length=5) for _ in
+                xrange(pols))
+        for line in self.draw_lines:
+            self.canvas.after.add(line)
+        for line in self.box_lines:
+            self.canvas.after.add(line)
 
-    def on_touch_move(self, touch):
-        '''If [draw_bounds] is True, manages painting on collidable areas, for
-        bounds inspection.'''
-
-        if self.draw_bounds:
-            if self.collide_point(*touch.pos):
-                self.paint_group.add(Color(.7, .3, 0, 1))
-                self.paint_group.add(Line(circle=(touch.pos[0],
-                                                  touch.pos[1], 3)))
-        else:
-            super(Rotabox, self).on_touch_move(touch)
+        # Securing draw on a stationary widget.
+        self.x += .001
 
     def draw(self):
         '''If [draw_bounds] is True, visualises the widget's bounds.
-        For bounds testing.'''
-
+        For testing.'''
         try:
-            for i in xrange(len(self.polygons)):
-                self.draw_lines[i].points = [n for point
-                                             in self.polygons[i].points
-                                             for n in point]
-        except IndexError:
+            if self.segment_mode:
+                if self.open_bounds:
+                    for i in xrange(len(self.groups)):
+                        self.draw_lines[i].points = [n for point
+                                                     in self.groups[i].points
+                                                     for n in point]
+                else:
+                    pols_lens = self.index[self.curr_key][1]
+                    length = 0
+                    for i, leng in enumerate(pols_lens):
+                        self.draw_lines[i].points = [n
+                                                     for j in xrange(length,
+                                                                     length
+                                                                     + leng)
+                                                     for point
+                                                     in self.groups[j].points
+                                                     for n in point]
+                        length += leng
+                # for i in xrange(len(self.sides)):
+                #     box = self.sides[i].bbox
+                #     self.draw_color.rgba = .8, .2, 0, 1
+                #     self.box_lines[i].points = [box[0], box[1],
+                #                                 box[2], box[1],
+                #                                 box[2], box[3],
+                #                                 box[0], box[3]]
+            else:
+                for i in xrange(len(self.groups)):
+                    self.draw_lines[i].points = [n for point
+                                                 in self.groups[i].points
+                                                 for n in point]
+                    # box = self.polygons[i].bbox
+                    # self.draw_color.rgba = .8, .2, 0, 1
+                    # self.box_lines[i].points = [box[0], box[1],
+                    #                             box[2], box[1],
+                    #                             box[2], box[3],
+                    #                             box[0], box[3]]
+            # box = self.bbox
+            # self.box_color.rgba = .8, .2, 0, 1
+            # self.box_lines[0].points = (box[0], box[1],
+            #                         box[2], box[1],
+            #                         box[2], box[3],
+            #                         box[0], box[3])
+        except (IndexError, KeyError):
             pass
 
-# ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    # ------------------------------------------------------ BOUNDS & COLLISION
+    def define_bounds(self):
+        '''Organising the data from the user's [self.custom_bounds] hints.'''
+        if self.segment_mode:
+            if isinstance(self.custom_bounds, dict):   # Animation case
+                for key, frame in self.custom_bounds.iteritems():
+                    sides, plains, ajar = make_bounds(frame,
+                                                      self.hidden_bounds,
+                                                      self.open_bounds, True)
+                    scale_bounds(self.size, sides)
+                    self.frames[key] = sides
+
+                    # Keeping a reference to the input structure, since the
+                    # latter has to change to a single sequence of sides.
+                    l = 0
+                    pollens = []
+                    pindices = []
+                    for i, pol in enumerate(frame):
+                        if i not in self.open_bounds:
+                            pollens.append(len(pol))
+                            l += len(pol)
+                        else:
+                            pollens.append(len(pol) - 1)
+                            l += len(pol) - 1
+                        pindices.append(l)
+                    self.index[key] = plains, pollens, pindices, ajar
+            if isinstance(self.custom_bounds, list):  # Single image case
+                sides, plains, ajar = make_bounds(self.custom_bounds,
+                                                  self.hidden_bounds,
+                                                  self.open_bounds, True)
+                scale_bounds(self.size, sides)
+                self.groups = sides
+                # Keeping a reference to the input structure, since the
+                # latter has to change to a single sequence of sides.
+                l = 0
+                pollens = []
+                pindices = []
+                for i, pol in enumerate(self.custom_bounds):
+                    if i not in self.open_bounds:
+                        pollens.append(len(pol))
+                        l += len(pol)
+                    else:
+                        pollens.append(len(pol) - 1)
+                        l += len(pol) - 1
+                    pindices.append(l)
+                self.index[self.curr_key] = plains, pollens, pindices, ajar
+                self.plain_sides_len = plains
+        else:
+            if isinstance(self.custom_bounds, dict):   # Animation case
+                for key, frame in self.custom_bounds.iteritems():
+                    polygons = make_bounds(frame,
+                                           self.hidden_bounds, [], False)
+                    scale_bounds(self.size, polygons)
+                    self.frames[key] = polygons
+            if isinstance(self.custom_bounds, list):  # Single image case
+                polygons = make_bounds(self.custom_bounds,
+                                       self.hidden_bounds, [], False)
+                scale_bounds(self.size, polygons)
+                self.groups = polygons
+
+        self.update_bounds(self.groups, True, self.radiangle, self.pos)
+
+    def update_bounds(self, groups, motion, angle, pos):
+        '''Updating the elements of the collision detection checks:
+        The detectors ([groups]) & the outgoing data ([visible_bbox], etc.).
+        '''
+        if self.segment_mode:
+            bboxes = ()
+            # Trying to avoid calculating each point twice (each point being a
+            # member of two sides), by passing the previous endpoint, to serve
+            # as the next startpoint.
+            motbpoint = ()
+            rotbpoint = ()
+            for s, side in enumerate(groups):
+                if s in self.index[self.curr_key][2]:
+                    # Resetting to calculate the first point of each polygon.
+                    motbpoint = ()
+                    rotbpoint = ()
+                if motion:
+                    motbpoint = move_sides(side, pos, motbpoint)
+                if angle:
+                    rotbpoint = rotate_sides(self.origin, angle, side, rotbpoint)
+                side.bbox = calculate_bbox(points=side.points)
+                bboxes += (side.bbox,)
+
+            self.bbox = calculate_bbox(bboxes=bboxes)
+
+            if not self.hidden_bounds:
+                self.visible_sides = groups
+                self.visible_bbox = self.bbox
+                return
+
+            plains = [groups[i] for i in xrange(self.plain_sides_len)]
+            bboxes = [side.bbox for side in plains]
+
+            self.visible_sides = plains
+            self.visible_bbox = calculate_bbox(bboxes=bboxes)
+        else:
+            points = []
+            bboxes = ()
+            for pol in groups:
+                if motion:
+                    move_polygons(angle, pol, pos)
+                if angle:
+                    rotate_polygons(self.origin, angle, pol)
+                pol.bbox = calculate_bbox(points=pol.points)
+                bboxes += (pol.bbox,)
+                points += pol.points
+
+            self.bbox = calculate_bbox(bboxes=bboxes)
+
+            if not self.hidden_bounds:
+                self.visible_points = points
+                self.visible_bbox = self.bbox
+                return
+
+            hidden_pols = [pol for pol in groups if pol.hidden]
+            plain_pols = [pol for pol in groups if pol not in hidden_pols]
+            points = [point for pol in plain_pols for point in pol.points]
+
+            # Placing any hidden bounds to be last in collision checks.
+            self.groups = plain_pols + hidden_pols
+            self.visible_points = points
+            self.visible_bbox = calculate_bbox(bboxes=[pol.bbox
+                                                       for pol in plain_pols])
+
+    def collide_point(self, x=0, y=0):
+        '''"Oddeven" point-in-polygon method:
+        Checking the membership of touch point by assuming a ray from that
+        point to infinity (to window right) and counting the number of
+        polygon sides that this ray crosses. If this number is odd,
+        the point is inside; if even, the point is outside.
+        '''
+        if self.allow_rotabox:
+            if self.segment_mode:
+                key = self.index[self.curr_key]
+                prevrang = 0
+                for r, rang in enumerate(key[2]):
+                    if r in key[3]:
+                        continue
+                    c = False
+                    for i in xrange(prevrang, rang):
+                        ax, ay = self.groups[i].points[0]
+                        bx, by = self.groups[i].points[1]
+                        if (((by > y) != (ay > y)) and
+                                x < (ax - bx) * (y - by) / (ay - by) + bx):
+                            c = not c
+                    if c:
+                        return c
+                    prevrang = rang
+                return False
+            else:
+                for pol in self.groups:
+                    points = pol.points
+                    ppl = len(points)
+                    j = ppl - 1
+                    c = False
+                    for i in xrange(ppl):
+                        x1, y1 = points[j]
+                        x2, y2 = points[i]
+                        if (((y2 > y) != (y1 > y)) and
+                                x < (x1 - x2) * (y - y2) / (y1 - y2) + x2):
+                            c = not c
+                        j = i
+                    if c:
+                        return c
+                return False
+        else:
+            return super(Rotabox, self).collide_point(x, y)
+
+    def collide_widget(self, wid):
+        '''Axis-aligned bounding box testing, before widget is sent to
+        [collide_more] for more checks.
+        '''
+        if self.bbox:
+            this_box = self.bbox
+        else:
+            return super(Rotabox, self).collide_widget(wid)
+        try:  # Assuming the other widget is a Rotabox, too.
+            that_box = wid.visible_bbox
+            that_box[0]
+        except (AttributeError, IndexError):  # and if not..
+            if self.segment_mode:
+                that_box = wid.x, wid.y, wid.right, wid.top
+            else:
+                return super(Rotabox, self).collide_widget(wid)
+
+        # Axis-aligned bounding boxes test. Similar to Widget's.
+        if this_box[2] < that_box[0]:
+            return False
+        if this_box[0] > that_box[2]:
+            return False
+        if this_box[3] < that_box[1]:
+            return False
+        if this_box[1] > that_box[3]:
+            return False
+
+        if self.segment_mode:
+            try:
+                those_sides = wid.visible_sides
+            except AttributeError:  # If wid is not a Rotabox..
+                those_sides = (((wid.x, wid.top), (wid.x, wid.y)),
+                               ((wid.x, wid.y), (wid.right, wid.y)),
+                               ((wid.right, wid.y), (wid.right, wid.top)),
+                               ((wid.right, wid.top), (wid.x, wid.top)))
+            try:
+                those_sides[0]
+            except IndexError:  # If wid uses the other method..
+                for pol in wid.groups:
+                    pts = pol.points
+                    l = len(pts)
+                    those_sides += tuple(tuple([pts[i], pts[(i + 1) % l]])
+                                         for i in xrange(l))
+
+            coll = collide_sides(self.groups, that_box, those_sides,
+                                 self.last_side)
+            if coll:
+                # Keeping and passing back the last collided side, to start the
+                # checks with (optimization).
+                self.last_side = (coll[2]
+                                  if coll[0][0] not in self.hidden_bounds
+                                  else 0)
+                coll.pop()
+            return coll
+        else:
+            return collide_polygons(self.groups, wid)
+
+    # ----------------------------------- TOUCH HANDLING (altered Scatter code)
+    def on_touch_down(self, touch):
+        x, y = touch.x, touch.y
+
+        # if the touch isnt on the widget we do nothing
+        if not self.collide_after_children:
+            if not self.collide_point(x, y):
+                # return super(Rotabox, self).on_touch_down(touch)
+                return False
+
+        # let the child widgets handle the event if they want
+        if super(Rotabox, self).on_touch_down(touch):
+            # ensure children don't have to do it themselves
+            if 'multitouch_sim' in touch.profile:
+                touch.multitouch_sim = True
+            self.bring_to_front(touch)
+            return True
+
+        # if we don't have any active
+        # interaction control, then don't accept the touch.
+        if not (self.allow_drag_x
+                or self.allow_drag_y
+                or self.multi_touch_rotation
+                or self.multi_touch_scaling
+                or self.single_touch_rotation
+                or self.single_touch_scaling):
+            return False
+
+        if self.collide_after_children:
+            if not self.collide_point(x, y):
+                return False
+
+        if 'multitouch_sim' in touch.profile:
+            touch.multitouch_sim = True
+
+        # grab the touch so we get all it later move events for sure
+        self.bring_to_front(touch)
+        touch.grab(self)
+        self.touches.append(touch)
+        self.last_touch_pos[touch] = x, y
+
+        return True
+
+    def bring_to_front(self, touch):
+        '''Auto bring to front.'''
+        if self.touched_to_front and self.parent:
+            parent = self.parent
+            if parent.children[0] is self:
+                return
+            parent.remove_widget(self)
+            parent.add_widget(self)
+            self.dispatch('on_touched_to_front', touch)
+
+    def on_touch_move(self, touch):
+        x, y = touch.x, touch.y
+
+        # let the child widgets handle the event if they want
+        if self.collide_point(x, y) and not touch.grab_current == self:
+            if super(Rotabox, self).on_touch_move(touch):
+                return True
+
+        # rotate/scale/translate
+        if touch in self.touches and touch.grab_current == self:
+            if self.transform_with_touch(touch):
+                self.dispatch('on_transform_with_touch', touch)
+            self.last_touch_pos[touch] = x, y
+
+        if self.collide_point(x, y):
+                return True
+
+    def transform_with_touch(self, touch):
+        changed = False
+
+        # drag
+        touches = len(self.touches)
+        if (touches == self.single_drag_touch
+                and (self.allow_drag_x or self.allow_drag_y)):
+            dx = (touch.x - self.last_touch_pos[touch][0]) * self.allow_drag_x
+            dy = (touch.y - self.last_touch_pos[touch][1]) * self.allow_drag_y
+            dx = float(dx) / self.single_drag_touch
+            dy = float(dy) / self.single_drag_touch
+            self.x += dx
+            self.y += dy
+            changed = True
+
+        # single touch rotation / scaling
+        if (touches == self.single_trans_touch
+                and (self.single_touch_rotation or self.single_touch_scaling)):
+            anchor = self.pivot
+            old_line = Vector(*touch.ppos) - anchor
+            new_line = Vector(*touch.pos) - anchor
+            if not old_line.length():   # div by zero
+                return changed
+            if self.single_touch_rotation:
+                angle = new_line.angle(old_line)
+                self.angle += angle
+            if self.single_touch_scaling:
+                scale = new_line.length() / old_line.length()
+                # new_scale = scale * self.scale
+                # if new_scale < self.scale_min:
+                #     scale = self.scale_min / float(self.scale)
+                # elif new_scale > self.scale_max:
+                #     scale = self.scale_max / float(self.scale)
+                self.scale *= scale
+            changed = True
+
+        if touches == 1:
+            return changed
+
+        # we have more than one touch... list of last known pos
+        points = [Vector(self.last_touch_pos[t]) for t in self.touches
+                  if t is not touch]
+        # add current touch last
+        points.append(Vector(touch.pos))
+
+        # we only want to transform if the touch is part of the two touches
+        # farthest apart! So first we find anchor, the point to transform
+        # around as another touch farthest away from current touch's pos
+        anchor = max(points[:-1], key=lambda p: p.distance(touch.pos))
+
+        # setting rotation origin to the anchor, if permitted
+        self.origin = anchor
+        # now we find the touch farthest away from anchor, if its not the
+        # same as touch. Touch is not one of the two touches used to transform
+        farthest = max(points, key=anchor.distance)
+        if farthest is not points[-1]:
+            return changed
+
+        # ok, so we have touch, and anchor, so we can actually compute the
+        # transformation
+        old_line = Vector(*touch.ppos) - anchor
+        new_line = Vector(*touch.pos) - anchor
+        if not old_line.length():   # div by zero
+            return changed
+
+        # if self.multi_touch_rotation:
+        angle = new_line.angle(old_line) * self.multi_touch_rotation
+        self.angle += angle
+
+        if self.multi_touch_scaling:
+            scale = new_line.length() / old_line.length()
+            # new_scale = scale * self.scale
+            # if new_scale < self.scale_min:
+            #     scale = self.scale_min / float(self.scale)
+            # elif new_scale > self.scale_max:
+            #     scale = self.scale_max / float(self.scale)
+            self.scale *= scale
+            changed = True
+        return changed
+
+    def on_touch_up(self, touch):
+        # if the touch isnt on the widget we do nothing, just try children
+        if not touch.grab_current == self:
+            if super(Rotabox, self).on_touch_up(touch):
+                return True
+
+        # remove it from our saved touches
+        if touch in self.touches and touch.grab_state:
+            touch.ungrab(self)
+            del self.last_touch_pos[touch]
+            self.touches.remove(touch)
+
+        # stop propagating if its within our bounds
+        if self.collide_point(*touch.pos):
+            return True
+
+    def on_transform_with_touch(self, touch):
+        '''
+        Called when a touch event has transformed the widget.
+        By default this does nothing, but can be overriden by derived
+        classes that need to react to transformations caused by user
+        input.
+
+        :Parameters:
+            `touch`: the touch object which triggered the transformation.
+        '''
+        pass
+
+    def on_touched_to_front(self, touch):
+        '''
+        Called when a touch event causes the widget to be brought to the
+        front of the parent (only if :attr:`touched_to_front` is True)
+
+        :Parameters:
+            `touch`: the touch object which brought the widget to front.
+        '''
+        pass
+
+    # ---------------------------------------------------------- SIZE_HINT LOCK
+    # Locking size_hint property to None, None,
+    # in order to keep intended aspect ratio (critical for custom_bounds).
+    def get_size_hint_x(self):
+        return None
+
+    def set_size_hint_x(self, value):
+        raise Exception("Rotabox can't use size_hint.")
+    size_hint_x = AliasProperty(get_size_hint_x, set_size_hint_x)
+
+    def get_size_hint_y(self):
+        return None
+
+    def set_size_hint_y(self, value):
+        raise Exception("Rotabox can't use size_hint.")
+    size_hint_y = AliasProperty(get_size_hint_y, set_size_hint_y)
+    size_hint = ReferenceListProperty(size_hint_x, size_hint_y)
+
+    # Used for calculating the widget's scale. It's the user's input size
+    # or the [texture_size] of the widget's [image].
+    original_size = ListProperty([1, 1])
+
+    # A fractional value that keeps [pivot] relative to the widget's size
+    # and position. [origin] sets and changes it.
+    pivot_bond = ListProperty([.5, .5])
+
+
+class Group(object):
+    '''An object to keep each polygon's or side's data.'''
+    __slots__ = 'id', 'hints', 'ref_pts', 'rel_pts', 'points', 'bbox', 'hidden'
+
+    def __init__(self):
+        self.id = ()  # Side's container polygon's original index, side's index
+                      # in said polygon (segment collision mode).
+        self.hints = ()  # User's relative points.
+        self.ref_pts = ()  # Translated points due to sizing before any motion.
+        self.rel_pts = []  # Translated points due to motion before rotation.
+        self.points = []  # Translated points due to rotation. Final points,
+                          # used for the collision tests.
+        self.bbox = ()  # Polygon's or side's axis-aligned bounding box.
+        self.hidden = False  # Polygon 'invisible' to others' checks
+                             # (point collision mode).
+
+
+def locate_images(root):
+    '''Traversing the widget tree to find the topmost Image to assign to
+    [image] property.'''
+    the_one = None
+
+    def find_img(widget):
+        for kid in widget.children:
+            img = find_img(kid)
+            if isinstance(kid, Image):
+                return kid
+            return img
+    for child in root.children:
+        the_one = find_img(child)
+        if isinstance(child, Image):
+            return child
+    return the_one
+
+
+def make_bounds(frame, hidden, opens, seg_mode):
+    '''Constructing polygon or side objects to organize, keep and update
+    the bounds' points' data.
+    '''
+    if seg_mode:
+        # Construction of side objects.
+        sides = ()
+        pairs = []
+        ajar = opens[:]
+        temp = []
+        for p, pol in enumerate(frame):
+            if p not in hidden:
+                for i in xrange(len(pol)):
+                    if p not in opens:
+                        k = (i + 1) % len(pol)
+                    elif i + 1 < len(pol):
+                        k = i + 1
+                    else:
+                        continue
+                    pairs.append((p, i, pol[i], pol[k]))
+            elif p in opens:
+                ajar.remove(p)
+                temp.append(p)
+
+        # A small pause before continuing with the hidden segments
+        ajar += temp
+        plains = len(pairs) - len(temp)
+
+        for idx in hidden:
+            for j in xrange(len(frame[idx])):
+                if idx not in opens:
+                    g = (j + 1) % len(frame[idx])
+                elif j + 1 < len(frame[idx]):
+                    g = j + 1
+                else:
+                    continue
+                pairs.append((idx, j, frame[idx][j],  frame[idx][g]))
+
+        pl = len(pairs)
+        for k in xrange(pl):
+            side = Group()
+            side.id = pairs[k][0], pairs[k][1]
+            side.hints = pairs[k][2], pairs[k][3]
+            sides += (side,)
+        return sides, plains, ajar
+    else:
+        # Construction of polygon objects.
+        polygons = ()
+        for i in xrange(len(frame)):
+            pol = Group()
+            pol.hints = frame[i]
+            if i in hidden:
+                pol.hidden = True
+            polygons += (pol,)
+        return polygons
+
+
+def scale_bounds(size, groups):
+    '''Scaling polygons or sides by updating their [ref_pts] list.'''
+    for obj in groups:
+        obj.points = obj.rel_pts = obj.ref_pts = tuple(
+            tuple(x * y for x, y in izip(point, size))
+            for point in obj.hints)
+
+
+def to_rotated(point, orig, angle, arctan, sine, cosine):
+    '''Tranlating a point acccording to widget's rotation.'''
+    dx = point[0] - orig[0]
+    dy = point[1] - orig[1]
+    distance = (dx * dx + dy * dy) ** .5
+    angle = (angle + arctan(dy, dx)) % 6.283  # 2pi
+    return (orig[0] + distance * cosine(angle),
+            orig[1] + distance * sine(angle))
+
+
+def calculate_bbox(points=None, bboxes=None):
+    '''An axis-aligned bounding box, calculated from points or bboxes.'''
+    if points:
+        left, bottom = map(min, *points)
+        right, top = map(max, *points)
+        return left, bottom, right, top
+    if bboxes:
+        if len(bboxes) > 1:
+            left, bottom, _, _ = map(min, *bboxes)
+            _, _, right, top = map(max, *bboxes)
+            return left, bottom, right, top
+        else:
+            return bboxes[0]
+    return ()
+
+
+# -------------------------------- SEGMENT (INTERSECTION) MODE
+def move_sides(side, pos, apoint):
+    '''Translating sides by updating their [rel_pts] list.'''
+    if apoint:
+        side.points = side.rel_pts = apoint, (side.ref_pts[1][0] + pos[0],
+                                              side.ref_pts[1][1] + pos[1])
+    else:
+        side.points = side.rel_pts = tuple(tuple(x + y
+                                           for x, y in izip(point, pos))
+                                           for point in side.ref_pts)
+    return side.rel_pts[1]
+
+
+def rotate_sides(origin, angle, side, apoint):
+    '''Rotating sides by updating their [points] list.'''
+    # Optimizations
+    at = atan2
+    si = sin
+    co = cos
+    if apoint:
+        side.points = apoint, to_rotated(side.rel_pts[1],
+                                         origin, angle, at, si, co)
+    else:
+        side.points = tuple(to_rotated(point, origin, angle, at, si, co)
+                            for point in side.rel_pts)
+    return side.points[1]
+
+
+def collide_sides(sides, that_box, those_sides, last):
+    '''Segment intersection detection method.'''
+    ls = len(sides)
+    for i in xrange(ls):
+        i = (i + last) % ls
+        side = sides[i]
+        # Preliminary 1: side's bbox vs widget's bbox.
+        box = side.bbox
+        if box[2] < that_box[0]:
+            continue
+        if box[0] > that_box[2]:
+            continue
+        if box[3] < that_box[1]:
+            continue
+        if box[1] > that_box[3]:
+            continue
+
+        v1, v2 = side.points
+        d1 = v2[0] - v1[0]
+        d2 = v2[1] - v1[1]
+        for a_side in those_sides:
+            try:
+                # Preliminary 2: side's bbox vs widget's side's bbox.
+                a_box = a_side.bbox
+                if box[2] < a_box[0]:
+                    continue
+                if box[0] > a_box[2]:
+                    continue
+                if box[3] < a_box[1]:
+                    continue
+                if box[1] > a_box[3]:
+                    continue
+                v3, v4 = a_side.points
+            except AttributeError:  # If the other not in [segment_mode].
+                v3, v4 = a_side[0], a_side[1]
+            d3 = v4[0] - v3[0]
+            d4 = v4[1] - v3[1]
+            # Main check:
+            # If the vertices v1 and v2 are not on opposite sides of the segment
+            # v3, v4, or the vertices v3 and v4 are not on opposite sides of
+            # the segment v1, v2, there's no intersection.
+            if ((d3 * (v1[1] - v3[1]) - (v1[0] - v3[0]) * d4 > 0)
+                    == (d3 * (v2[1] - v3[1]) - (v2[0] - v3[0]) * d4 > 0)):
+                continue
+            elif ((d1 * (v3[1] - v1[1]) - (v3[0] - v1[0]) * d2 > 0)
+                    == (d1 * (v4[1] - v1[1]) - (v4[0] - v1[0]) * d2 > 0)):
+                continue
+            try:
+                return [side.id, a_side.id, i]
+            except AttributeError:
+                return [side.id, those_sides.index(a_side), i]
+    return False
+
+
+# ------------------------------------ POINT (IN POLYGON) MODE
+def move_polygons(angle, pol, pos):
+    '''Translating polygons by updating their [rel_pts] list.'''
+    pol.rel_pts = [[x + y for x, y in izip(point, pos)]
+                   for point in pol.ref_pts]
+    if not angle:
+        pol.points = pol.rel_pts
+
+
+def rotate_polygons(origin, angle, pol):
+    '''Rotating polygons by updating their [points] list.'''
+    # Optimizations
+    at = atan2
+    si = sin
+    co = cos
+    pol.points = [to_rotated(point, origin, angle, at, si, co)
+                  for point in pol.rel_pts]
+
+
+def collide_polygons(polygons, alien):
+    ''''Point in polygon' collision detection method.'''
+    that_box = alien.visible_bbox
+    those_points = alien.visible_points
+
+    for pol in polygons:
+        # Preliminary 1: pol's bbox vs widget's bbox.
+        box = pol.bbox
+        if box[2] < that_box[0]:
+            continue
+        if box[0] > that_box[2]:
+            continue
+        if box[3] < that_box[1]:
+            continue
+        if box[1] > that_box[3]:
+            continue
+
+        # Preliminary 2: pol's bbox vs widget's points to filter out.
+        aliens = [point for point in those_points if
+                  box[0] <= point[0] <= box[2] and
+                  box[1] <= point[1] <= box[3]]
+        if not aliens:
+            continue
+
+        points = pol.points
+        ppl = len(points)
+        # Main check ('oddeven' point-in-polygon method):
+        # Checking the membership of each point by assuming a ray from that
+        # point to infinity (through window right in this case) and counting
+        # the number of polygon sides that this ray crosses. If this number is
+        # odd, the point is inside; if even, the point is outside.
+        for x, y in aliens:
+            j = ppl - 1
+            c = False
+            for i in xrange(ppl):
+                x1, y1 = points[j]
+                x2, y2 = points[i]
+                if (((y2 > y) != (y1 > y))
+                        and x < (x1 - x2) * (y - y2) / (y1 - y2) + x2):
+                    c = not c
+                j = i
+            if c:
+                return polygons.index(pol),
+    return False
+
+
+# ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 '''THIS IS THE END OF THE ACTUAL MODULE. THE REST, IS JUST A USAGE EXAMPLE.'''
-# vvvvvvvvvvvvvvvvvvvvv (Run the module directly, to watch) vvvvvvvvvvvvvvvvvvv
+# vvvvvvvvvvvvvvvvvvvv (Run the module directly, to watch) vvvvvvvvvvvvvvvvvvv
 
 if __name__ == '__main__':
-    from kivy.config import Config
-    Config.set('modules', 'monitor', '')
-    from kivy.app import App
+    from kivy.base import runTouchApp
     from kivy.lang import Builder
-    from kivy.uix.floatlayout import FloatLayout
 
     Builder.load_string('''
 <Root>:
     blue: blue
-    red: red
+    clear: clear
     Rotabox:
         id: blue
-        size: root.width * .6, root.height * .528
-        center: root.width * .3, root.height * .5
-        image: img
-        custom_bounds: True
-        bounds:
-            [[[(0.225, 0.685), (0.222, 0.405), (0.353, 0.278),
-            (0.356, 0.435), (0.53, 0.261), (0.665, 0.398), (0.849, 0.587),
-            (0.515, 0.553), (0.386, 0.683), (0.384, 0.526)], [1, 3, 5, 7, 9]]]
-        # draw_bounds: True
+        size: 320, 320
+        pivot: 250, 300
+        single_touch_rotation: True
+        single_touch_scaling: True
+        custom_bounds:
+            [[(0.225, 0.685), (0.222, 0.405), (0.353, 0.278),
+            (0.356, 0.435), (0.53, 0.261), (0.849, 0.587),
+            (0.515, 0.553), (0.386, 0.683), (0.384, 0.526)]]
         Image:
-            id: img
             source: 'data/logo/kivy-icon-256.png'
-            color: 0, .3, .7, 1
+            color: 0, .2, .7, 1
     Rotabox:
-        id: red
-        size: root.width * .25, root.height * .22
-        center: root.width * .8, root.height * .5
-        ratio: 1.5
-        custom_bounds: True
-        bounds:
-            [[[(0.013, 0.985), (0.016, 0.407), (0.202, 0.696)],
-            [1, 2]],
-            [[(0.267, 0.346), (0.483, -0.005), (0.691, 0.316),
-            (0.261, 0.975)], [0, 2]],
-            [[(0.539, 0.674), (0.73, 0.37), (0.983, 0.758)], [2, 0]],
-            [[(0.033, 0.315), (0.212, 0.598), (0.218, 0.028)],
-            [0, 2]]]
+        id: clear
+        size: 200, 132
+        pivot: 600, 300
+        allow_drag: True
+        custom_bounds:
+            [[(0.013, 0.985), (0.016, 0.407), (0.202, 0.696)],
+            [(0.267, 0.346), (0.483, -0.005), (0.691, 0.316), (0.261, 0.975)],
+            [(0.539, 0.674), (0.73, 0.37), (0.983, 0.758)],
+            [(0.033, 0.315), (0.212, 0.598), (0.218, 0.028)]]
         draw_bounds: True
-    ''')
+     ''')
 
-    class Root(FloatLayout):
-
+    class Root(Widget):
         def __init__(self, **kwargs):
             super(Root, self).__init__(**kwargs)
-            self.clock = Clock.schedule_interval(self.update, 0)
+            Clock.schedule_interval(self.update, 0)
 
         def update(self, *args):
-            if (self.blue.collide_widget(self.red) or
-                    self.red.collide_widget(self.blue)):
-                self.blue.x -= 1
-                self.red.x += 1
+            this = self.blue
+            that = self.clear
+            if this.collide_widget(that):
+                that.x += 1
+                this.x -= 1
             else:
-                self.blue.x += .5
-                self.red.x -= .5
-                self.blue.angle += .5
-                self.red.angle -= .7
+                this.x += .5
+                that.x -= .5
+                this.angle += .5
+                that.angle -= .6
 
-    class Example(App):
-
-        def build(self):
-            return Root()
-
-    Example().run()
+    runTouchApp(Root())

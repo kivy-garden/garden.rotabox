@@ -1,3 +1,0 @@
-
-By putting Rotabox2 (in 'rotabox_for_scatter.py') in Scatter2 (in 'scatter_for_rotabox.py'), as a child, you can have some basic scatter functionality while working with a Rotabox widget (normally incompatible with Scatter).
-Running 'rotabox_for_scatter.py' directly, shows an example, where the blue logo is in Scatter2.
