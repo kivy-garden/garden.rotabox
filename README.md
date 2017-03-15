@@ -48,7 +48,8 @@ ___
 ### Restrictions
 * In order to be able to maintain any arbitrary aspect ratio (e.g. its image's ratio), Rotabox can't use the *size_hint* property.  
 
-* Rotabox can only have one child. It can be an *Image* but not necessarily. 
+* Rotabox can only have one child.  
+ It's meant to be an *Image* but not necessarily.  
  Grandchildren, however, can collide independently, only if the widget is not rotated ( *angle* must be *0* ).
 
 
@@ -65,7 +66,7 @@ To use Rotabox, just include *rotabox.py* in your project files.
 	    rb.add_widget(Image(source='img.png'))
 	    self.add_widget(rb)
 ```
-The instance's default bounding box will be a rectangle, the size of the image, that rotates with it.
+The instance's default bounding box will be a rectangle, the size of the image, that rotates with it.  
 Use *angle* and *origin* properties for rotation.
 
 ## Basics
