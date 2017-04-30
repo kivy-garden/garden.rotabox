@@ -1007,7 +1007,7 @@ class Editor(FloatLayout):
             return True
         if self.open_btn.collide_point(*pos):
             self.board2.text = 'Open/close the selected polygon. [O]'
-            self.rem_btn.background_color = .23, .23, .3, 1
+            self.open_btn.background_color = .23, .23, .3, 1
             return True
         if self.copy_btn.collide_point(*pos):
             self.board2.text = 'Export the resulting code to clipboard, ' \
