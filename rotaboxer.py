@@ -1,7 +1,7 @@
 # coding=utf-8
 
 '''
-                                                    kivy 1.9.0 - python 2.7.10
+                                                    kivy 1.10.0 - python 2.7.13
 ROTABOXER
 ______________________________________________________________________________
 
@@ -14,14 +14,12 @@ ______________________________________________________________________________
 
 ____________________ RUN THE MODULE DIRECTLY TO USE ___________________________
 
-unjuan 2017
+unjuan 2018
 '''
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import unicode_literals
-import json
-
+from __future__ import absolute_import, division, unicode_literals
+import json, os, sys
+os.chdir(os.path.dirname(os.path.abspath(sys.argv[0])))
 app_config = {}
 try:
     with open('settings.json', 'r') as app_settings:
@@ -33,9 +31,9 @@ from kivy.config import Config
 Config.set('input', 'mouse', 'mouse,disable_multitouch')
 Config.set('graphics', 'width', app_config.get('width', 800))
 Config.set('graphics', 'height', app_config.get('height', 600))
-# Config.set('graphics', 'position', 'custom')
-# Config.set('graphics', 'top', app_config.get('top', 100))
-# Config.set('graphics', 'left', app_config.get('left', 250))
+Config.set('graphics', 'position', 'custom')
+Config.set('graphics', 'top', app_config.get('top', 200))
+Config.set('graphics', 'left', app_config.get('left', 400))
 from kivy.app import App
 from kivy.base import EventLoop
 from kivy.uix.checkbox import CheckBox
@@ -58,17 +56,14 @@ from kivy.properties import ObjectProperty, ListProperty, StringProperty, \
 from kivy.uix.filechooser import FileChooserListView
 from kivy.uix.floatlayout import FloatLayout
 from kivy.graphics.instructions import InstructionGroup
-from collections import deque
 from functools import partial
 import base64
 import re
-import os
-import sys
 import traceback
 import time
 
 __author__ = 'unjuan'
-__version__ = '0.10.0'
+__version__ = '0.10.1'
 
 
 class Sprite(BoxLayout):
@@ -175,10 +170,11 @@ class Point(ToggleButton):
             self.root.save_state(switch=1)
             if self.root.to_transfer:
                 return
-            for pol in self.root.rec[self.root.frame].itervalues():
-                if pol['number'] > self.pol['number']:
-                    pol['number'] -= 1
-            self.pol['number'] = len(self.root.rec[self.root.frame]) - 1
+            if not self.root.ordered:
+                for pol in self.root.rec[self.root.frame].itervalues():
+                    if pol['number'] > self.pol['number']:
+                        pol['number'] -= 1
+                self.pol['number'] = len(self.root.rec[self.root.frame]) - 1
 
     def on_touch_move(self, touch):
         if self.state != 'down':
@@ -202,11 +198,11 @@ class Point(ToggleButton):
         if self.grabbed:
             self.opacity = 1
             self.root.save_state(msg=str(self.pol['btn_points'].index(self))
-                                     + '_'
-                                     + str(self.pol['key'])
-                                     + '_'
-                                     + str((round(self.center_x),
-                                            round(self.center_y))),
+                                 + '_'
+                                 + str(self.pol['key'])
+                                 + '_'
+                                 + str((round(self.center_x),
+                                        round(self.center_y))),
                                  move=1)
             self.grabbed = False
             Point.busy = False
@@ -248,18 +244,13 @@ class Point(ToggleButton):
 
         pick_btn = Button(background_color=(.13, .13, .2, 1),
                           on_release=partial(self.root.pick_point, self))
-        pick_btn.text = 'Pick point to transfer'
+        pick_btn.text = 'Pick point'
         point_popup.add_widget(pick_btn)
 
         rem_btn = Button(background_color=(.13, .13, .2, 1),
                          on_release=self.root.remove_point)
         rem_btn.text = 'Remove point'
         point_popup.add_widget(rem_btn)
-
-        opn_btn = Button(background_color=(.13, .13, .2, 1),
-                         on_release=self.root.open_polygon)
-        opn_btn.text = self.root.open_btn.text
-        point_popup.add_widget(opn_btn)
 
         clear_btn = Button(background_color=(.13, .13, .2, 1),
                            on_release=self.root.remove_polygon)
@@ -268,8 +259,8 @@ class Point(ToggleButton):
 
         self.popup = AutoPopup(content=point_popup,
                                size_hint=(None, None),
-                               size=(240, 240))
-        self.popup.title = "Point/polygon menu:"
+                               size=(240, 200))
+        self.popup.title = "Point menu:"
         self.popup.open()
 
     def dismiss_popup(self, *args):
@@ -278,6 +269,7 @@ class Point(ToggleButton):
             self.popup = None
 
 
+# noinspection PyArgumentList
 class Editor(FloatLayout):
 
     def __init__(self, **kwargs):
@@ -288,13 +280,15 @@ class Editor(FloatLayout):
         self.pol = None
         self.index = None
         self.lasts = ['0', None, None]
-        self.history = deque()
+        self.history = []
         self.state = -1
         self.changes = 0
         self.motion_args = []
         self.atlas_source = ''
+        self.animation = False
         self.clone_points = False
-        self.history_states = 30  # UNDO STATES
+        self.ordered = True
+        self.history_states = 30 # UNDO STATES
         self.moves = []
         self.popup = None
         self.filename = ''
@@ -354,7 +348,6 @@ class Editor(FloatLayout):
             pol = frame[self.pol] = {}
 
             pol['number'] = pol['key'] = int(self.pol)
-            pol['open'] = False
             pol['btn_points'] = [Point(pol, self, self.mag, pos=(x, y),
                                        text=str(0))]
             pol['color'] = self.default_color
@@ -427,19 +420,6 @@ class Editor(FloatLayout):
 
         del frame[str(p)]
 
-    def open_polygon(self, *args):
-        if self.pol:
-            pol = self.rec[self.frame][self.pol]
-            pol['btn_points'][self.index].dismiss_popup()
-            if pol['open']:
-                pol['open'] = False
-                self.save_state('Closed polygon {}'.format(self.pol))
-            else:
-                pol['open'] = True
-                self.save_state('Opened polygon {}'.format(self.pol))
-            self.update()
-            self.draw()
-
     def deselect_polygon(self):
         if self.pol:
             self.rec[self.frame][self.pol]['btn_points'][self.index].state = \
@@ -451,7 +431,6 @@ class Editor(FloatLayout):
             self.draw()
 
     def pick_point(self, point, *args):
-        print point.multi_selected
         point.dismiss_popup()
         if point.multi_selected:
             self.to_transfer.remove((self.pol,
@@ -462,7 +441,6 @@ class Editor(FloatLayout):
 
         self.to_transfer.append((self.pol, point.pol['btn_points'].index(point)))
         point.multi_selected = True
-        print point.multi_selected
         self.draw()
 
     def transfer_points(self, point=None, pp=None):
@@ -527,7 +505,6 @@ class Editor(FloatLayout):
             pol = frame[self.pol] = {}
 
             pol['number'] = pol['key'] = int(self.pol)
-            pol['open'] = False
             pol['btn_points'] = []
             pol['color'] = self.default_color
             pol['label'] = Label(size=(50, 50), font_size='35sp', bold=True,
@@ -610,7 +587,7 @@ class Editor(FloatLayout):
                 self.history.append(snapshot)
                 self.changes += 1
                 if len(self.history) > self.history_states:
-                    self.history.popleft()
+                    self.history.pop(0)
         self.update()
 
     def change_state(self, btn):
@@ -671,9 +648,11 @@ class Editor(FloatLayout):
                     self.keys[self.keys.index(self.frame) - 1] \
                     if self.keys.index(self.frame) > 0 \
                     else self.keys[-1]
-
-            self.sprite.image.source = ('atlas://' + self.filename + '/'
-                                                   + self.frame)
+            try:
+                self.sprite.image.source = ('atlas://' + self.filename + '/'
+                                                       + self.frame)
+            except ZeroDivisionError:
+                pass
             self.sprite.image.size = self.sprite.image.texture_size
             self.sprite.size = self.sprite.image.size
             self.sprite.center = self.width * .6, self.height * .5
@@ -691,7 +670,6 @@ class Editor(FloatLayout):
                                                       pos=point.center))
                     v2['key'] = v['key']
                     v2['number'] = v['number']
-                    v2['open'] = v['open']
                     v2['color'] = v['color'][:]
                     v2['label'] = Label(size=(50, 50), font_size='35sp',
                                         bold=True, color=v2['color'][:-1] + [.3])
@@ -714,407 +692,6 @@ class Editor(FloatLayout):
                                 + '  of  '
                                 + str(len(self.keys)) + '  frames)')
 
-    # ------------------------ OUTPUT -----------------------
-    def choose_lang(self, *args):
-        popup = BoxLayout(orientation='vertical')
-
-        py_btn = Button(background_color=(.13, .13, .2, 1),
-                        on_release=self.to_clipboard)
-        py_btn.text = 'Python'
-        popup.add_widget(py_btn)
-        kv_btn = Button(background_color=(.13, .13, .2, 1),
-                        on_release=partial(self.to_clipboard, False))
-        kv_btn.text = 'KVlang'
-        popup.add_widget(kv_btn)
-
-        self.popup = AutoPopup(content=popup,
-                               size_hint=(None, None),
-                               size=(240, 150))
-        self.popup.title = 'Select code language:'
-        self.popup.open()
-
-    def to_clipboard(self, py=True, *args):
-        self.dismiss_popup()
-        self.write(py)
-        code = self.code.decode('utf-8')
-        Clipboard.copy(code)
-        self.warn('Bounds exported!',
-                  'Code is now on the clipboard,\n'
-                  'ready to be pasted in a Rotabox widget\n'
-                  'that uses the same image.',
-                  action=self.dismiss_popup, cancel=0,
-                  tcolor=(.1, .65, .1, 1))
-        print(Clipboard.paste())
-
-    def write(self, py=True):
-        if self.atlas_source:
-            if py:
-                self.code = 'custom_bounds = {\n            '
-            else:
-                self.code = 'custom_bounds:\n            {'
-            for key, frame in self.rec.iteritems():
-                if frame:
-                    self.calc_hints(frame)
-                    pols = self.sort_polygons(frame)
-                    self.code += "'" + key + "': ["
-                    self.write_more(pols, py)
-                    if py:
-                        self.code += '],\n            '
-                    else:
-                        self.code += '],\n            '
-            self.code = (self.code.rstrip(',\n ') + '}')
-            return
-        frame = self.rec[self.frame]
-        self.calc_hints(frame)
-        if py:
-            self.code = 'custom_bounds = [\n            '
-        else:
-            self.code = 'custom_bounds:\n            ['
-        pols = self.sort_polygons(frame)
-        opens = self.write_more(pols, py)
-        self.code += ']'
-        if opens:
-            if py:
-                self.code += '\n        open_bounds = {}'.format(opens)
-            else:
-                self.code += '\n        open_bounds: {}'.format(opens)
-
-    def calc_hints(self, frame):
-        for pol in frame.itervalues():
-            if len(pol['btn_points']):
-                pol['points'] = [(round(float(point.center_x - self.sprite.x) /
-                                        self.sprite.width, 3),
-                                  round(float(point.center_y - self.sprite.y) /
-                                        self.sprite.height, 3))
-                                 for point in pol['btn_points']]
-            else:
-                pol['points'] = []
-
-    @staticmethod
-    def sort_polygons(frame):
-        pols = []
-        i = 0
-        while i < len(frame):
-            for pol in frame.itervalues():
-                if pol['number'] == i:
-                    pols.append(pol)
-                    break
-            i += 1
-        return pols
-
-    def write_more(self, pols, py):
-        opens = []
-        if self.atlas_source:
-            poiws = '\n                   '
-            polws = '\n                  '
-        else:
-            poiws = '\n             '
-            polws = '\n            '
-        kvspace = '\n            '
-        for pol in pols:
-            if not pol['points']:
-                continue
-            if pol['open']:
-                opens.append(pol['number'])
-            self.code += '['
-            i_3 = 0
-            for i, point in enumerate(pol['points']):
-                self.code += '(' + str(point[0]) + ', ' + str(point[1]) + '), '
-                if ((not self.atlas_source and i - i_3 == 3)
-                        or (self.atlas_source and i - i_3 == 2)):
-                    if py:
-                        self.code += poiws
-                    else:
-                        self.code += kvspace
-                    i_3 = i + 1
-            self.code = (self.code.rstrip(',\n ') + '], ')
-            if py:
-                self.code += polws
-            else:
-                self.code += kvspace
-        self.code = self.code.rstrip(',\n ')
-        return opens
-
-    # ------------------------ VISUALS -----------------------
-    def show_numbers(self):
-        if self.rec:
-            frame = self.rec[self.frame]
-            if self.nums_on:
-                for p, pol in frame.iteritems():
-                    xs = 0
-                    ys = 0
-                    minx = 1000000
-                    miny = 1000000
-                    maxx = 0
-                    maxy = 0
-                    for i, point in enumerate(pol['btn_points']):
-                        point.text = str(i)
-                        x = point.center_x
-                        xs += x
-                        y = point.center_y
-                        ys += y
-                        if x < minx:
-                            minx = x
-                        if x > maxx:
-                            maxx = x
-                        if y < miny:
-                            miny = y
-                        if y > maxy:
-                            maxy = y
-                    label = pol['label']
-                    pw, ph = (maxx - minx), (maxy - miny)
-                    label.center = minx + pw * .5, miny + ph * .5
-                    diag = (pw * ph) ** .5
-                    label.width = pw * .33
-                    label.height = ph * .33
-                    label.font_size = '{}sp'.format(round(diag * .3))
-                    label.color = pol['color'][:-1] + [.3]
-                    label.text = str(pol['key'])
-                    label.opacity = 1
-            else:
-                for pol in frame.itervalues():
-                    for point in pol['btn_points']:
-                        point.text = ''
-                    pol['label'].opacity = 0
-            pols = [None] * len(frame)
-            c = 0
-            while c < len(frame):
-                pols[frame[str(c)]['number']] = c
-                c += 1
-            self.board4.text = "Polygons' export order:\n" + str(pols)
-        else:
-            self.board4.text = "Polygons' export order:\n" + '[]'
-
-    def show_history(self):
-        str1 = str3 = ''
-        if self.state - 1 >= -len(self.history):
-            str1 = self.history[self.state - 1][0]
-        if self.state + 1 < 0:
-            str3 = self.history[self.state + 1][0]
-        str2 = self.history[self.state][0]
-        '[color=#ffffff]{}[/color]'
-        self.board3.text = '[color=#444444]{}[/color]'.format(str1) \
-                           + '\n' \
-                           + '[color=#909090]{}[/color]'.format(str2) \
-                           + '\n' \
-                           + '[color=#444444]{}[/color]'.format(str3)
-
-    def update(self):
-        self.show_numbers()
-        self.show_history()
-        for entry in self.ids:
-            if hasattr(self.ids[entry], 'group'):
-                if not self.ids[entry].group == 'nav':
-                    self.ids[entry].disabled = False
-                elif self.atlas_source:
-                    self.ids[entry].disabled = False
-                else:
-                    self.ids[entry].disabled = True
-
-        if self.state > -len(self.history) or self.moves:
-            self.undo.disabled = False
-        else:
-            self.undo.disabled = True
-
-        if self.state != -1:
-            self.redo.disabled = False
-        else:
-            self.redo.disabled = True
-
-        if self.pol:
-            pol = self.rec[self.frame][self.pol]
-            if pol['open']:
-                self.open_btn.text = 'Close polygon'
-            else:
-                self.open_btn.text = 'Open polygon'
-
-    def hover(self, *args):
-        if self.to_transfer:
-            self.board2.text = "Click on a different point to transfer the " \
-                "picked points after it, or click anywhere to make a " \
-                "separate new polygon [Enter]. Press [Esc] to cancel."
-            return True
-        pos = Window.mouse_pos
-        for entry in self.ids:
-            if entry == 'num_btn':
-                self.ids[entry].background_color = 0, 0, 0, 1
-                continue
-            if entry.startswith(('blue', 'red_', 'green',
-                                'yellow', 'magenta', 'cyan')):
-                self.ids[entry].background_color = self.ids[entry].original_color
-                continue
-            if isinstance(self.ids[entry], Button):
-                self.ids[entry].background_color = .13, .13, .2, 1
-
-        if self.load_btn.collide_point(*pos):
-            self.board2.text = 'Open an image, atlas or project file. ' \
-                               '[Ctrl] + [O]'
-            self.load_btn.background_color = .23, .23, .3, 1
-            return True
-        if self.save.collide_point(*pos):
-            self.board2.text = 'Save current project to a project file. [S]\n' \
-                               'If checked, it functions as a quick save ' \
-                               '(no dialog) [Ctrl] + [S].'
-            self.save_btn.background_color = .23, .23, .3, 1
-            return True
-        if self.help_btn.collide_point(*pos):
-            self.board2.text = 'Help [F1]'
-            self.help_btn.background_color = .23, .23, .3, 1
-            return True
-
-        if self.undo.collide_point(*pos):
-            self.board2.text = 'Undo last action. [Ctrl] + [Z]'
-            self.undo.background_color = .23, .23, .3, 1
-            return True
-        if self.redo.collide_point(*pos):
-            self.board2.text = 'Redo last undone action. [Ctrl] + [Shift] + [Z]'
-            self.redo.background_color = .23, .23, .3, 1
-            return True
-
-        if self.prev.collide_point(*pos):
-            self.board2.text = "Previous frame of an atlas' sequence. [<]\n" \
-                               "If [Alt] is pressed, frame's points " \
-                               "REPLACE previous frame's points."
-            self.prev.background_color = .23, .23, .3, 1
-            return True
-        if self.next.collide_point(*pos):
-            self.board2.text = "Next frame of an atlas' sequence. [>]\n" \
-                               "If [Alt] is pressed, frame's points REPLACE " \
-                               "next frame's points."
-            self.next.background_color = .23, .23, .3, 1
-            return True
-
-        if self.minus.collide_point(*pos):
-            self.board2.text = 'Zoom out. [-]'
-            self.minus.background_color = .23, .23, .3, 1
-            return True
-        if self.plus.collide_point(*pos):
-            self.board2.text = 'Zoom in. [+]'
-            self.plus.background_color = .23, .23, .3, 1
-            return True
-
-        if self.cancel_btn.collide_point(*pos):
-            self.board2.text = 'Cancel points transfer. [Esc]'
-            self.cancel_btn.background_color = .23, .23, .3, 1
-            return True
-        if self.rem_btn.collide_point(*pos):
-            self.board2.text = 'Delete the selected point. [Delete]'
-            self.rem_btn.background_color = .23, .23, .3, 1
-            return True
-        if self.clear_pol.collide_point(*pos):
-            self.board2.text = 'Delete the selected polygon. [Shift] + [Delete]'
-            self.clear_pol.background_color = .23, .23, .3, 1
-            return True
-        if self.open_btn.collide_point(*pos):
-            self.board2.text = 'Open/close the selected polygon. [O]'
-            self.open_btn.background_color = .23, .23, .3, 1
-            return True
-        if self.copy_btn.collide_point(*pos):
-            self.board2.text = 'Export the resulting code to clipboard, ' \
-                               'to use in a Rotabox widget. [E]'
-            self.copy_btn.background_color = .23, .23, .3, 1
-            return True
-
-        if self.num_area.collide_point(*pos):
-            self.board2.text = "Show/Hide the polygons' and points' indices. [N]"
-            self.num_btn.background_color = .05, .05, .05, 1
-            return True
-
-        if self.blue_btn.collide_point(*pos):
-            self.board2.text = "Set the color of the current polygon or set " \
-                               "default polygon color. [1]"
-            self.blue_btn.background_color = 0.59, 0.818, 1.3, 1
-            return True
-        if self.red_btn.collide_point(*pos):
-            self.board2.text = "Set the color of the current polygon or set " \
-                               "default polygon color. [2]"
-            self.red_btn.background_color = 1.3, 0.59, 0.59, 1
-            return True
-        if self.green_btn.collide_point(*pos):
-            self.board2.text = "Set the color of the current polygon or set " \
-                               "default polygon color. [3]"
-            self.green_btn.background_color = 0.59, 1.3, 0.59, 1
-            return True
-        if self.yellow_btn.collide_point(*pos):
-            self.board2.text = "Set the color of the current polygon or set " \
-                               "default polygon color. [4]"
-            self.yellow_btn.background_color = 1.3, 1.3, 0.59, 1
-            return True
-        if self.magenta_btn.collide_point(*pos):
-            self.board2.text = "Set the color of the current polygon or set " \
-                               "default polygon color. [5]"
-            self.magenta_btn.background_color = 1.3, 0.59, 1.3, 1
-            return True
-        if self.cyan_btn.collide_point(*pos):
-            self.board2.text = "Set the color of the current polygon or set " \
-                               "default polygon color. [6]"
-            self.cyan_btn.background_color = 0.59, 1.3, 1.3, 1
-            return True
-
-        if self.board3.collide_point(*pos):
-            self.board2.text = "History logs (previous, current and (if undo) "\
-                               "next states)."
-            return True
-        if self.board4.collide_point(*pos):
-            self.board2.text = "The order in which the polygons would be " \
-                               "written if exported.\n" \
-                               "Changes each time a polygon is selected."
-            return True
-
-        self.board2.text = ('Click to add, select or drag to move a point. '
-                            'Right click on canvas to move canvas.\n'
-                            'Scroll to zoom. Middle click to reset zoom.')
-
-    def set_color(self, color, *args):
-        if self.pol:
-            self.rec[self.frame][self.pol]['color'] = color
-            self.update()
-            self.draw()
-        else:
-            self.default_color = color
-
-    def draw(self):
-        self.draw_group.clear()
-        if not self.rec:
-            self.rec = {'0': {}}
-        for pol in self.rec[self.frame].itervalues():
-            points = pol['btn_points']
-            for i in xrange(len(points)):
-                if not pol['open']:
-                    k = (i + 1) % len(points)
-                else:
-                    k = i + 1 if i + 1 < len(points) else i
-
-                self.draw_group.add(Color(*pol['color']))
-                self.draw_group.add(Line(points=(points[i].center_x,
-                                                 points[i].center_y,
-                                                 points[k].center_x,
-                                                 points[k].center_y),
-                                         width=self.line_width))
-                self.draw_group.add(Color(0, 0, 0, 1))
-                self.draw_group.add(Line(points=(points[i].center_x,
-                                                 points[i].center_y,
-                                                 points[k].center_x,
-                                                 points[k].center_y),
-                                         dash_offset=2,
-                                         dash_length=1))
-                self.draw_group.add(Color(1, 1, 1, 1))
-                self.draw_group.add(Line(circle=(points[i].center_x,
-                                                 points[i].center_y,
-                                                 self.mag - 1.8)))
-                self.draw_group.add(Color(0, 0, 0, 1))
-                self.draw_group.add(Line(circle=(points[i].center_x,
-                                                 points[i].center_y,
-                                                 self.mag - 2)))
-
-    def zoom(self, btn):
-        if btn == 'in':
-            if self.scat.scale < 100:
-                self.scat.scale += 0.5
-        elif btn == 'out':
-            if self.scat.scale > 0.4:
-                self.scat.scale -= 0.3
-
     # ------------------------ INPUT -----------------------
     def load_dialog(self, *args):
         """ Shows the 'Import/Open' dialog."""
@@ -1129,17 +706,18 @@ class Editor(FloatLayout):
         content = LoadDialog(load=self.load_check, cancel=self.dismiss_popup,
                              file_types=['*.png', '*.atlas', '*.bounds'])
         if os.path.isdir(self.last_dir):
-            content.ids.filechooser.path = self.last_dir
+            content.filechooser.path = self.last_dir
         else:
             './'
         self.popup = AutoPopup(content=content, size_hint=(.6, .9),
-                           color=(.4, .3, .2, 1),
-                           title='Open image, atlas or project file:',
-                           auto_dismiss=False)
+                               color=(.4, .3, .2, 1),
+                               title='Open image, atlas or project file:',
+                               auto_dismiss=False)
         self.popup.open()
 
     def load_check(self, path, filename):
         if filename:
+            filename = filename[0]
             self.last_dir = path
             self.clear_points()
             self.rec = {}
@@ -1148,10 +726,11 @@ class Editor(FloatLayout):
             self.pol = None
             self.index = None
             self.lasts = ['0', None, None]
-            self.history = deque()
+            self.history = []
             self.state = -1
             self.changes = 0
             self.atlas_source = ''
+            self.animation = False
             self.sprite.size = 1, 1
             self.sprite.pos = self.width * .6, self.height * .5
             self.scat.scale = 1
@@ -1159,7 +738,7 @@ class Editor(FloatLayout):
             self.empty_cut()
             try:
                 self.sprite.remove_widget(self.sprite.image)
-            except AttributeError:
+            except AttributeError as er:
                 pass
             if filename.endswith('.bounds'):
                 self.load_proj(filename, path)
@@ -1208,7 +787,7 @@ class Editor(FloatLayout):
                 self.frame = self.keys[0]
                 self.sprite.image = Image(source=self.atlas_source)
         else:
-            self.sprite.image = Image(source=self.source, keep_data=True)
+            self.sprite.image = Image(source=self.source, color=[1, 1, 1, .5], keep_data=True)
         self.sprite.add_widget(self.sprite.image)
         self.sprite.image.size = self.sprite.image.texture_size
         self.sprite.size = self.sprite.image.size
@@ -1235,10 +814,16 @@ class Editor(FloatLayout):
         else:
             self.load_img(filename, path, source=project['image'])
             if not self.sprite.image.texture:
-                self.warn('Image "{}" is not found.'.format(
+                self.sprite.remove_widget(self.sprite.image)
+                self.sprite.image = None
+                self.sprite.opacity = 0
+                self.grid.opacity = 0
+                self.board1.text = ''
+                self.warn("Image '{}' is not found.".format(
                           project['image']),
-                          'Please, put the image with\n'
-                          'the project file and try again.',
+                          "Please, put the image\n"
+                          "in the project file's directory\n"
+                          "and try again.",
                           action=self.dismiss_popup, cancel=0)
                 return
             try:
@@ -1275,7 +860,6 @@ class Editor(FloatLayout):
                 self.rec[f][p] = {}
                 self.rec[f][p]['key'] = pol['key']
                 self.rec[f][p]['number'] = pol['number']
-                self.rec[f][p]['open'] = pol['open']
                 self.rec[f][p]['color'] = pol['color']
                 self.rec[f][p]['label'] = Label(size=(50, 50), font_size='35sp',
                                                 bold=True,
@@ -1297,6 +881,139 @@ class Editor(FloatLayout):
                         point.area_color = point.norm_fill_color
                         point.line_color = point.norm_line_color
 
+    # ------------------------ OUTPUT -----------------------
+    def toggle_anim(self, state):
+        if state == 'down':
+            self.animation = True
+        else:
+            self.animation = False
+
+    def unlock_order(self, state=None, *args):
+        if not state:
+            state = self.index_btn.state
+            if state == 'down':
+                self.index_btn.state = 'normal'
+                self.ordered = True
+            else:
+                self.index_btn.state = 'down'
+                self.ordered = False
+        else:
+            if state == 'down':
+                self.ordered = False
+            else:
+                self.ordered = True
+
+    def choose_lang(self, *args):
+        popup = BoxLayout(orientation='vertical')
+
+        py_btn = Button(background_color=(.13, .13, .2, 1),
+                        on_release=self.to_clipboard)
+        py_btn.text = 'Python'
+        popup.add_widget(py_btn)
+        kv_btn = Button(background_color=(.13, .13, .2, 1),
+                        on_release=partial(self.to_clipboard, False))
+        kv_btn.text = 'KVlang'
+        popup.add_widget(kv_btn)
+
+        self.popup = AutoPopup(content=popup,
+                               size_hint=(None, None),
+                               size=(240, 150))
+        self.popup.title = 'Select code language:'
+        self.popup.open()
+
+    def to_clipboard(self, py=True, *args):
+        self.dismiss_popup()
+        self.write(py)
+        code = self.code.decode('utf-8')
+        Clipboard.copy(code)
+        self.warn('Bounds exported!',
+                  'Code is now on the clipboard,\n'
+                  'ready to be pasted in a Rotabox widget\n'
+                  'that uses the same image.',
+                  action=self.dismiss_popup, cancel=0,
+                  tcolor=(.1, .65, .1, 1))
+        print(Clipboard.paste())
+
+    def write(self, py=True):
+        if self.atlas_source and self.animation:
+            if py:
+                self.code = 'custom_bounds = {\n            '
+            else:
+                self.code = 'custom_bounds:\n            {'
+            for key, frame in self.rec.iteritems():
+                if frame:
+                    self.calc_hints(frame)
+                    pols = self.sort_polygons(frame)
+                    self.code += "'" + key + "': ["
+                    self.write_more(pols, py)
+                    if py:
+                        self.code += '],\n            '
+                    else:
+                        self.code += '],\n            '
+            self.code = (self.code.rstrip(',\n ') + '}')
+            return
+        frame = self.rec[self.frame]
+        self.calc_hints(frame)
+        if py:
+            self.code = 'custom_bounds = [\n            '
+        else:
+            self.code = 'custom_bounds:\n            ['
+        pols = self.sort_polygons(frame)
+        self.write_more(pols, py)
+        self.code += ']'
+
+    @staticmethod
+    def sort_polygons(frame):
+        pols = []
+        i = 0
+        while i < len(frame):
+            for pol in frame.itervalues():
+                if pol['number'] == i:
+                    pols.append(pol)
+                    break
+            i += 1
+        return pols
+
+    def calc_hints(self, frame):
+        for pol in frame.itervalues():
+            if len(pol['btn_points']):
+                pol['points'] = [(round(float(point.center_x - self.sprite.x) /
+                                        self.sprite.width, 3),
+                                  round(float(point.center_y - self.sprite.y) /
+                                        self.sprite.height, 3))
+                                 for point in pol['btn_points']]
+            else:
+                pol['points'] = []
+
+    def write_more(self, pols, py):
+        anim = self.atlas_source and self.animation
+        if anim:
+            poiws = '\n                   '
+            polws = '\n                  '
+        else:
+            poiws = '\n             '
+            polws = '\n            '
+        kvspace = '\n            '
+        for pol in pols:
+            if not pol['points']:
+                continue
+            self.code += '['
+            i_3 = 0
+            for i, point in enumerate(pol['points']):
+                self.code += '(' + str(point[0]) + ', ' + str(point[1]) + '), '
+                if (not anim and i - i_3 == 3) or (anim and i - i_3 == 2):
+                    if py:
+                        self.code += poiws
+                    else:
+                        self.code += kvspace
+                    i_3 = i + 1
+            self.code = (self.code.rstrip(',\n ') + '], ')
+            if py:
+                self.code += polws
+            else:
+                self.code += kvspace
+        self.code = self.code.rstrip(',\n ')
+
     # ------------------------ STORAGE -----------------------
     def store(self, project):
         for f, frame in self.rec.iteritems():
@@ -1305,7 +1022,6 @@ class Editor(FloatLayout):
                 project[f][p] = {}
                 project[f][p]['key'] = pol['key']
                 project[f][p]['number'] = pol['number']
-                project[f][p]['open'] = pol['open']
                 project[f][p]['color'] = pol['color']
                 project[f][p]['points'] = [tuple([point.center_x - self.sprite.x,
                                                   point.center_y - self.sprite.y])
@@ -1372,7 +1088,7 @@ class Editor(FloatLayout):
             return
         if 'button' in touch.profile:
             mouse_btn = touch.button
-        if not self.sprite.image and mouse_btn != 'right':
+        if not self.sprite.image:
             super(Editor, self).on_touch_down(touch)
             return
         if mouse_btn == 'scrolldown':
@@ -1493,14 +1209,11 @@ class Editor(FloatLayout):
 
         if self.popup:
             return True
-        if key not in [273, 274, 275, 276, 303, 304, 305, 306] and self.history:
+        if key not in [273, 274, 275, 276, 303, 304, 305, 306]:
             self.save_state(switch=1)
 
         if key == 111:  # O
-            if ['ctrl'] in args:
                 self.load_dialog()
-                return
-            self.open_polygon()
 
         # ---------------- IF IMAGE IS PRESENT
 
@@ -1530,8 +1243,12 @@ class Editor(FloatLayout):
 
         if key == 110:  # N
             self.nums_on = not self.nums_on
-            self.num_box.active = self.nums_on
+            # self.num_box.active = self.nums_on
+            self.num_btn.state = 'down' if self.nums_on else 'normal'
             self.update()
+
+        if key == 114:  # R
+            self.unlock_order()
 
         if key == 101:  # E
             self.choose_lang()
@@ -1612,14 +1329,13 @@ class Editor(FloatLayout):
                     curr_point.center_y += 10
                 else:
                     curr_point.center_y += 1
-                # print 'ok', self.index, self.pol, curr_point.center_x
                 self.save_state(msg=str(self.index)
                                      + '_'
                                      + str(self.pol)
                                      + '_'
                                      + str((round(curr_point.center_x),
                                             round(curr_point.center_y))),
-                                 move=1)
+                                move=1)
             if key == 274:  # down
                 if ['ctrl'] in args:
                     curr_point.center_y -= .1
@@ -1661,7 +1377,7 @@ class Editor(FloatLayout):
                                      + '_'
                                      + str((round(curr_point.center_x),
                                             round(curr_point.center_y))),
-                                move=1)
+                                 move=1)
         self.draw()
 
     def on_key_up(self, window, key, *args):
@@ -1671,6 +1387,299 @@ class Editor(FloatLayout):
             self.clone_points = False
         if key == 305 or key == 306:  # Ctrl
             self.ctrl = False
+
+    # ------------------------ VISUALS -----------------------
+    def show_numbers(self):
+        if self.rec:
+            frame = self.rec[self.frame]
+            if self.nums_on:
+                for p, pol in frame.iteritems():
+                    xs = 0
+                    ys = 0
+                    minx = 1000000
+                    miny = 1000000
+                    maxx = 0
+                    maxy = 0
+                    for i, point in enumerate(pol['btn_points']):
+                        point.text = str(i)
+                        x = point.center_x
+                        xs += x
+                        y = point.center_y
+                        ys += y
+                        if x < minx:
+                            minx = x
+                        if x > maxx:
+                            maxx = x
+                        if y < miny:
+                            miny = y
+                        if y > maxy:
+                            maxy = y
+                    label = pol['label']
+                    pw, ph = (maxx - minx), (maxy - miny)
+                    label.center = minx + pw * .5, miny + ph * .5
+                    diag = (pw * ph) ** .5
+                    label.width = pw * .33
+                    label.height = ph * .33
+                    label.font_size = '{}sp'.format(round(diag * .3))
+                    label.color = pol['color'][:-1] + [.3]
+                    label.text = str(pol['key'])
+                    label.opacity = 1
+            else:
+                for pol in frame.itervalues():
+                    for point in pol['btn_points']:
+                        point.text = ''
+                    pol['label'].opacity = 0
+            pols = [None] * len(frame)
+            c = 0
+            while c < len(frame):
+                pols[frame[str(c)]['number']] = c
+                c += 1
+            self.board4.text = "Polygons' export order:\n" + str(pols)
+        else:
+            self.board4.text = "Polygons' export order:\n" + '[]'
+
+    def show_history(self):
+        str1 = str3 = ''
+        if self.state - 1 >= -len(self.history):
+            str1 = self.history[self.state - 1][0]
+        if self.state + 1 < 0:
+            str3 = self.history[self.state + 1][0]
+        str2 = self.history[self.state][0]
+        '[color=#ffffff]{}[/color]'
+        self.board3.text = '[color=#444444]{}[/color]'.format(str1) \
+                           + '\n' \
+                           + '[color=#909090]{}[/color]'.format(str2) \
+                           + '\n' \
+                           + '[color=#444444]{}[/color]'.format(str3)
+
+    def update(self):
+        self.show_numbers()
+        self.show_history()
+        for entry in self.ids:
+            if hasattr(self.ids[entry], 'group'):
+                if not self.ids[entry].group == 'nav':
+                    self.ids[entry].disabled = False
+                elif self.atlas_source:
+                    self.ids[entry].disabled = False
+                else:
+                    self.ids[entry].disabled = True
+
+        if self.state > -len(self.history) or self.moves:
+            self.undo.disabled = False
+        else:
+            self.undo.disabled = True
+
+        if self.state != -1:
+            self.redo.disabled = False
+        else:
+            self.redo.disabled = True
+
+    def hover(self, *args):
+        pos = Window.mouse_pos
+        for entry in self.ids:
+            btn = self.ids[entry]
+            # if entry == 'num_btn':
+            #     btn.background_color = 0, 0, 0, 1
+            #     continue
+            if entry.startswith(('blue', 'red_', 'green',
+                                'yellow', 'magenta', 'cyan')):
+                btn.background_color = btn.original_color
+                continue
+            if entry == 'index_btn':
+                btn.background_color = (btn.norm_color if btn.state == 'normal'
+                                        else btn.down_color)
+                continue
+            if isinstance(btn, Button):
+                self.ids[entry].background_color = .13, .13, .2, 1
+
+        if self.load_btn.collide_point(*pos):
+            self.board2.text = 'Open an image, atlas or project file. [O]'
+            self.load_btn.background_color = .23, .23, .3, 1
+            return True
+
+        if self.save.collide_point(*pos):
+            self.board2.text = 'Save current project to a project file. [S]\n' \
+                               'If checked, it functions as a quick save/' \
+                               'overwrite (no dialog) [Ctrl] + [S].'
+            self.save_btn.background_color = .23, .23, .3, 1
+            return True
+
+        if self.help_btn.collide_point(*pos):
+            self.board2.text = 'Help [F1]'
+            self.help_btn.background_color = .23, .23, .3, 1
+            return True
+
+        if self.undo.collide_point(*pos):
+            self.board2.text = 'Undo last action. [Ctrl] + [Z]'
+            self.undo.background_color = .23, .23, .3, 1
+            return True
+        if self.redo.collide_point(*pos):
+            self.board2.text = 'Redo last undone action. [Ctrl] + [Shift] + [Z]'
+            self.redo.background_color = .23, .23, .3, 1
+            return True
+
+        if self.prev.collide_point(*pos):
+            self.board2.text = "Previous frame of an atlas' sequence. [<]\n" \
+                               "If [Alt] is pressed, frame's points " \
+                               "REPLACE previous frame's points."
+            self.prev.background_color = .23, .23, .3, 1
+            return True
+        if self.next.collide_point(*pos):
+            self.board2.text = "Next frame of an atlas' sequence. [>]\n" \
+                               "If [Alt] is pressed, frame's points REPLACE " \
+                               "next frame's points."
+            self.next.background_color = .23, .23, .3, 1
+            return True
+        if self.anim_btn.collide_point(*pos):
+            self.board2.text = "Set the editor's behavior towards an atlas file. [Alt] + [A]"
+            self.anim_btn.background_color = .23, .23, .3, 1
+            return True
+
+        if self.minus.collide_point(*pos):
+            self.board2.text = 'Zoom out. [-]'
+            self.minus.background_color = .23, .23, .3, 1
+            return True
+        if self.plus.collide_point(*pos):
+            self.board2.text = 'Zoom in. [+]'
+            self.plus.background_color = .23, .23, .3, 1
+            return True
+
+        if self.cancel_btn.collide_point(*pos):
+            self.board2.text = 'Cancel points transfer. [Esc]'
+            self.cancel_btn.background_color = .23, .23, .3, 1
+            return True
+        if self.rem_btn.collide_point(*pos):
+            self.board2.text = 'Delete the selected point. [Delete]'
+            self.rem_btn.background_color = .23, .23, .3, 1
+            return True
+        if self.clear_pol.collide_point(*pos):
+            self.board2.text = 'Delete the selected polygon. [Shift] + [Delete]'
+            self.clear_pol.background_color = .23, .23, .3, 1
+            return True
+
+        if self.copy_btn.collide_point(*pos):
+            self.board2.text = 'Export the resulting code to clipboard, ' \
+                               'to use in a Rotabox widget. [E]'
+            self.copy_btn.background_color = .23, .23, .3, 1
+            return True
+
+        if self.num_btn.collide_point(*pos):
+            self.board2.text = "Show/Hide the polygons' and points' indices. [N]"
+            self.num_btn.background_color = .23, .23, .3, 1
+            return True
+
+        if self.index_btn.collide_point(*pos):
+            self.board2.text = "Set the polygons' order in the exported code. [R]"
+            if self.index_btn.state == 'normal':
+                self.index_btn.background_color = .23, .23, .3, 1
+            else:
+                self.index_btn.background_color = 1, .15, .15, 1
+            return True
+
+        if self.blue_btn.collide_point(*pos):
+            self.board2.text = "Set the color of the current polygon or set " \
+                               "default polygon color. [1]"
+            self.blue_btn.background_color = 0.59, 0.818, 1.3, 1
+            return True
+        if self.red_btn.collide_point(*pos):
+            self.board2.text = "Set the color of the current polygon or set " \
+                               "default polygon color. [2]"
+            self.red_btn.background_color = 1.3, 0.59, 0.59, 1
+            return True
+        if self.green_btn.collide_point(*pos):
+            self.board2.text = "Set the color of the current polygon or set " \
+                               "default polygon color. [3]"
+            self.green_btn.background_color = 0.59, 1.3, 0.59, 1
+            return True
+        if self.yellow_btn.collide_point(*pos):
+            self.board2.text = "Set the color of the current polygon or set " \
+                               "default polygon color. [4]"
+            self.yellow_btn.background_color = 1.3, 1.3, 0.59, 1
+            return True
+        if self.magenta_btn.collide_point(*pos):
+            self.board2.text = "Set the color of the current polygon or set " \
+                               "default polygon color. [5]"
+            self.magenta_btn.background_color = 1.3, 0.59, 1.3, 1
+            return True
+        if self.cyan_btn.collide_point(*pos):
+            self.board2.text = "Set the color of the current polygon or set " \
+                               "default polygon color. [6]"
+            self.cyan_btn.background_color = 0.59, 1.3, 1.3, 1
+            return True
+
+        if self.board3.collide_point(*pos):
+            self.board2.text = "History logs (previous, current and (if undo) "\
+                               "next states)."
+            return True
+        if self.board4.collide_point(*pos):
+            self.board2.text = "The order in which the polygons would be " \
+                               "written if exported."
+            return True
+
+        if self.to_transfer:
+            self.board2.text = ("Click on a different point to transfer the "
+                                "picked points after it, or click anywhere to "
+                                "make a separate new polygon [Enter]. Press "
+                                "[Esc] to cancel.")
+            return True
+
+        if not self.ordered:
+            self.board2.text = ("Select each polygon in the order that they need "
+                                "to be in the outputed list. When finished, click "
+                                "on the order button once more to lock the order "
+                                "again.")
+            return True
+
+        self.board2.text = ('Click to add, select or drag to move a point. '
+                            'Right click on canvas to move canvas.\n'
+                            'Scroll to zoom. Middle click to reset zoom.')
+
+    def set_color(self, color, *args):
+        if self.pol:
+            self.rec[self.frame][self.pol]['color'] = color
+            self.update()
+            self.draw()
+        else:
+            self.default_color = color
+
+    def draw(self):
+        self.draw_group.clear()
+        if not self.rec:
+            self.rec = {'0': {}}
+        for pol in self.rec[self.frame].itervalues():
+            points = pol['btn_points']
+            for i in xrange(len(points)):
+                k = (i + 1) % len(points)
+
+                self.draw_group.add(Color(*pol['color']))
+                self.draw_group.add(Line(points=(points[i].center_x,
+                                                 points[i].center_y,
+                                                 points[k].center_x,
+                                                 points[k].center_y),
+                                         width=self.line_width))
+                self.draw_group.add(Color(0, 0, 0, 1))
+                self.draw_group.add(Line(points=(points[i].center_x,
+                                                 points[i].center_y,
+                                                 points[k].center_x,
+                                                 points[k].center_y),
+                                         dash_offset=2,
+                                         dash_length=1))
+                self.draw_group.add(Color(1, 1, 1, 1))
+                self.draw_group.add(Line(circle=(points[i].center_x,
+                                                 points[i].center_y,
+                                                 self.mag - 1.8)))
+                self.draw_group.add(Color(0, 0, 0, 1))
+                self.draw_group.add(Line(circle=(points[i].center_x,
+                                                 points[i].center_y,
+                                                 self.mag - 2)))
+
+    def zoom(self, btn):
+        if btn == 'in':
+            if self.scat.scale < 100:
+                self.scat.scale += 0.5
+        elif btn == 'out':
+            if self.scat.scale > 0.4:
+                self.scat.scale -= 0.3
 
     # ----------------------- UTILS --------------------------
     @staticmethod
@@ -1746,11 +1755,10 @@ class Editor(FloatLayout):
     def save_window(self):
         """ Saves the json based configuration settings
         """
-        width, height = EventLoop.window.size
-        config = {'width': width,
-                  'height': height,
-                  # 'top': EventLoop.window.top,
-                  # 'left': EventLoop.window.left,
+        config = {'width': Window.width,
+                  'height': Window.height,
+                  'left': Window.left,
+                  'top': Window.top,
                   'last dir': self.last_dir}
         try:
             with open('settings.json', 'w+') as settings:
@@ -1847,14 +1855,21 @@ If no point is selected, the new point will start a new polygon.
 When selecting a point, the encompassing polygon is selected too.
 (See {0}Keyboard shortcuts{4} for selection conveniences).
 
+{0}{6}Selecting a polygon{7}{4}
+{0}Click{4} on one of its points to select/deselect it.
+(See {0}Keyboard shortcuts{4} for selection conveniences).
+
+{0}{6}Reorder polygons{7}{4} If {0}Order polygons{4} is pressed, the polygons can be selected, consecutively, in the (intended) exporting order.
+{0}Note{4} that their displayed number doesn't change but their order does (watch the label bottom-right corner of the workarea).
+
 {0}{6}Moving a point{7}{4}:
 A point can be moved by {0}Clicking & dragging{4} it, or by using the {0}keyboard arrows{4}.
 
 {0}{6}Transfering points to another polygon{7}{4}:
-Not to be confused with a positional change, this is only a linkage change; an exchange between lists.
+Not to be confused with a positional transfer, this is only a linkage change; an exchange between polygons' vertices.
 A point can be picked by {0}Ctrl + clicking{4} on it.
 When the desired points are picked, they can be attached to another polygon by {0}clicking on one of its points{4}. They will be added after the clicked point in the order they were picked.
-Alternatively, they can form a {0}new polygon{4} by {0}clicking anywhere{4} on the workspace.
+Alternatively, they can form a {0}new polygon{4} by {0}clicking anywhere{4} in the workspace.
 
 {0}{6}Exporting the bounds{7}{4}.
 The Rotaboxer output, is the resulting code of {0}Export bounds{4} which is copied to the {0}clipboard{4}, to be used in a Rotabox widget.
@@ -1867,6 +1882,11 @@ This order can be determined by selecting each polygon, one after the other, in 
 
 {0}{6}Moving the workspace{7}{4}:
 {0}Right click & drag{4} to move the workspace.
+
+{0}{6}Animation{7}{4}:
+Using the {0}Animation{4} button, determine whether an {0}.atlas{4} file is an animation.
+If it is an animation, the exported bounds will be a dictionary.
+Else, the exported bounds will be a list, concerning only the current frame.
 
 {0}{6}Cloning points between frames{7}{4}:
 While advancing through an atlas' images using the screen buttons or the {0}[<]/[>]{4} keys, the points of the current frame can be {0}cloned{4} to the next, using the {0}[Alt]{4} key, together with the aforementioned buttons or keys.
@@ -1927,6 +1947,7 @@ class ScrollLabel(ScrollView):
         self.scroll_wheel_distance = 50
 
 
+# noinspection PyIncorrectDocstring
 def folder_sort(files, filesystem):
     """ Sorts the files and folders in the 'File Dialogs' popups.
     Used in the FileChooserListViewX class
@@ -1939,18 +1960,23 @@ def sorting(item):
     return item[0].upper() if type(item) == list else item.lower()
 
 
-class FileChooserListViewX(FileChooserListView):
-    """ Overrides the sorting method of the FileChooserListView class.
+def get_win_drives():
+    """ Finds the drive letters in Windows OS.
     """
-    sort_func = ObjectProperty(folder_sort)
+    if platform == 'win':
+        import win32api
+        # noinspection PyUnresolvedReferences
+        drives = win32api.GetLogicalDriveStrings()
+        drives = drives.split('\000')[:-1]
+        return drives
+    else:
+        return []
 
-    def __init__(self, **kwargs):
-        super(FileChooserListViewX, self).__init__(**kwargs)
 
-
-class LoadDialog(FloatLayout):
-    """ 'Load File' popup dialog."""
-
+# noinspection PyIncorrectDocstring,PyArgumentList
+class LoadDialog(BoxLayout):
+    """ 'Load File' popup dialog.
+    """
     load = ObjectProperty(None)
     cancel = ObjectProperty(None)
     file_types = ListProperty(['*.*'])
@@ -1958,36 +1984,32 @@ class LoadDialog(FloatLayout):
 
     def __init__(self, **kwargs):
         super(LoadDialog, self).__init__(**kwargs)
-        self.drives_list.adapter.bind(
-            on_selection_change=self.drive_selection_changed)
         self.filechooser.path = './'
+        self.create_drives()
 
-    @staticmethod
-    def get_win_drives():
-        """ Finds the drive letters in Windows OS.
+    def create_drives(self):
+        """ Creates the Drive list in Windows OS.
         """
-        if platform == 'win':
-            import win32api
-            drives = win32api.GetLogicalDriveStrings()
-            drives = drives.split('\000')[:-1]
-            return drives
-        else:
-            return []
+        for i in get_win_drives():
+            btn = DarkButton(text=i)
+            btn.bind(on_press=self.on_drive_selected)
+            self.ids.drives_list.add_widget(btn)
+        self.ids.drives_list.add_widget(Label())  # add empty space under the drives
 
-    def drive_selection_changed(self, *args):
+    def on_drive_selected(self, *args):
         """ Changes the current drive letter in Windows OS.
         """
         try:
-            selected_item = args[0].selection[0].text
-        except IndexError as er:
-            print 'on drive_selection_changed(LoadDialog): ', er
+            selected_drive = args[0].text
+        except IndexError:
             return
-        self.filechooser.path = selected_item
+        self.filechooser.path = selected_drive
 
 
-class SaveDialog(FloatLayout):
-    """ 'Save File' popup dialog."""
-
+# noinspection PyIncorrectDocstring,PyArgumentList
+class SaveDialog(BoxLayout):
+    """ 'Save File' popup dialog.
+    """
     save = ObjectProperty(None)
     cancel = ObjectProperty(None)
     file_types = ListProperty(['*.*'])
@@ -1995,31 +2017,39 @@ class SaveDialog(FloatLayout):
 
     def __init__(self, **kwargs):
         super(SaveDialog, self).__init__(**kwargs)
-        self.drives_list.adapter.bind(
-            on_selection_change=self.drive_selection_changed)
         self.filechooser.path = './'
+        self.create_drives()
 
-    @staticmethod
-    def get_win_drives():
-        """ Finds the drive letters in Windows OS.
+    def create_drives(self):
+        """ Creates the Drive list in Windows OS.
         """
-        if platform == 'win':
-            import win32api
-            drives = win32api.GetLogicalDriveStrings()
-            drives = drives.split('\000')[:-1]
-            return drives
-        else:
-            return []
+        for i in get_win_drives():
+            btn = DarkButton(text=i)
+            btn.bind(on_press=self.on_drive_selected)
+            self.ids.drives_list.add_widget(btn)
+        self.ids.drives_list.add_widget(Label())  # add empty space under the drives
 
-    def drive_selection_changed(self, *args):
+    def on_drive_selected(self, *args):
         """ Changes the current drive letter in Windows OS.
         """
         try:
-            selected_item = args[0].selection[0].text
-        except IndexError as er:
-            print 'on drive_selection_changed(SaveDialog): ', er
+            selected_drive = args[0].text
+        except IndexError:
             return
-        self.filechooser.path = selected_item
+        self.filechooser.path = selected_drive
+
+
+class FileChooserListViewX(FileChooserListView):
+    """ Overrides the sorting method of the FileChooserListView class.
+    """
+    sort_func = ObjectProperty(folder_sort)
+
+
+class DarkButton(ToggleButton):
+    """ Makes the drive letter buttons Dark Grey.
+    """
+    def __init__(self, **kwargs):
+        super(DarkButton, self).__init__(**kwargs)
 
 
 class Rotaboxer(App):
@@ -2027,8 +2057,7 @@ class Rotaboxer(App):
 
     def build(self):
         self.use_kivy_settings = False
-
-        with open('guifont.ttf', 'wb') as font:
+        with open("guifont.ttf", "wb") as font:
             font.write(base64.b64decode('''
 AAEAAAAOAIAAAwBgT1MvMn+sfT4AAAFoAAAATlZETViCPInQAAAM8AAABeBjbWFwDzQf8AAAA1wAAAH
 SY3Z0IAAUAAAAAAaYAAAAAmZwZ20yTXNmAAAFNAAAAWJnbHlmmiZ/HQAABtQAAAW4aGVhZAlIuxIAAA
@@ -2112,8 +2141,7 @@ L//gDgAOP//gDhAOT//gDiAOX//gDjAOb//gDkAOf//gDlAOj//gDmAOn//gDnAOv//gDoAOz//gDpA
 O3//gDqAO7//gDrAO///gDsAPD//gDtAPH//gDuAPL//gDvAPP//gDwAPT//gDxAPX//gDyAPb//gDz
 APf//gD0APj//gD1APn//gD2APr//gD3APv//gD4APz//gD5AP3//gD6AP7//gD7AP///gD8AQD//gD
 9AQH//gD+AQL//gD/AQP//g=='''))
-
-        with open('grid.png', 'wb') as img:
+        with open("grid.png", "wb") as img:
             img.write(base64.b64decode('''
 iVBORw0KGgoAAAANSUhEUgAAAIAAAACACAMAAAD04JH5AAAABGdBTUEAAK/INwWK6QAAABl0RVh0U29
 mdHdhcmUAQWRvYmUgSW1hZ2VSZWFkeXHJZTwAAAAMUExURQICAhEREQoKCgAAAMve66sAAALaSURBVH
@@ -2133,13 +2161,13 @@ CABnx8ACCABnx8ACDAAIOyqUUTQiRTAAAAAElFTkSuQmCC'''))
         self.texture = Image(source='grid.png').texture
         self.texture.wrap = 'repeat'
         self.texture.uvsize = (8, 8)
-
-        with open('dot.png', 'wb') as dot:
+        with open("dot.png", "wb") as dot:
             dot.write(base64.b64decode('''
 iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAACXBIWXMAAAsTAAALEwEAmpwYAAAABGd
 BTUEAALGOfPtRkwAAACBjSFJNAAB6JQAAgIMAAPn/AACA6QAAdTAAAOpgAAA6mAAAF2+SX8VGAAAAEE
 lEQVR42mL4//8/A0CAAQAI/AL+26JNFgAAAABJRU5ErkJggg=='''))
-        return Editor()
+        root = Editor()
+        return root
 
     def _on_keyboard_settings(self, window, *largs):
         key = largs[0]
@@ -2156,9 +2184,8 @@ lEQVR42mL4//8/A0CAAQAI/AL+26JNFgAAAABJRU5ErkJggg=='''))
         try:
             os.remove('grid.png')
             os.remove('dot.png')
-            # os.remove('guifont.ttf')
-        except EnvironmentError as er:
-            print('on on_stop(removing stuff): ', er)
+        except EnvironmentError:
+            pass
 
 
 def error_print():

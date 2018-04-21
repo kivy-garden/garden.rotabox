@@ -8,33 +8,24 @@ from rotabox import Rotabox
 
 Builder.load_string('''
 <Root>:
-    blue: blue
-    red: red
+    trap: trap
+    logo: logo
     Rotabox:
-        id: blue
+        id: trap
         size: 320, 320
-        pivot: 500, 300
-        custom_bounds:
-            [[(0.223, 0.68), (0.223, 0.404), (0.353, 0.28)],
-            [(0.402, 0.391), (0.528, 0.262), (0.855, 0.587), (0.519, 0.552),
-            (0.384, 0.684)]]
-        open_bounds: [0, 1]
+        center: 500, 300
+        open_bounds: [0]
         draw_bounds: True
-        Image:
-            source: 'data/logo/kivy-icon-256.png'
-            color: .2, .2, .7, 1
     Rotabox:
-        id: red
+        id: logo
         size: 200, 132
-        pivot: 800, 300
+        center: 800, 300
         custom_bounds:
-            [[(0.016, 0.977), (0.016, 0.343), (0.214, 0.029)],
-            [(0.264, 0.974), (0.262, 0.338), (0.483, -0.002), (0.986, 0.752)]]
-        open_bounds: [0, 1]
-        draw_bounds: True
+            [[(0.018, 0.335), (0.212, 0.042), (0.217, 0.408),
+            (0.48, -0.004), (0.988, 0.758), (0.458, 0.665), (0.26, 0.988),
+            (0.268, 0.585), (0.02, 0.977)]]
         Image:
             source: 'kivy.png'
-            color: .5, 0, .2, 1
 ''')
 
 
@@ -42,19 +33,19 @@ class Root(Widget):
     def __init__(self, **kwargs):
         super(Root, self).__init__(**kwargs)
         Clock.schedule_interval(self.update, 0)
-        self.blue.draw_color.rgba = 1, 1, 1, 1
-        self.red.draw_color.rgba = 1, 1, 1, 1
 
     def update(self, *args):
-        this = self.blue
-        that = self.red
+        this = self.trap
+        that = self.logo
         if this.collide_widget(that):
-            that.x += .5
-            this.angle += .5
             this.x -= 1
+            this.angle += .3
+            that.x += .5
         else:
+            this.x += .5
+            this.angle -= .3
             that.x -= .5
             that.angle -= .6
 
-
-runTouchApp(Root())
+if __name__ == '__main__':
+    runTouchApp(Root())
