@@ -1,51 +1,70 @@
 
-Version split
-=============
-	Rotabox went through a major change, during version 0.9, that led to a version split.
-	Two new collision detection approaches, easier by far for the user, rendered the previous method obsolete.
-	So, while version 0.9 adds features to the earlier version, it's the last of its line.
-	It can be found in the *Rotabox.0.9.legacy* folder.
-	Version 0.10, carrying the new methods, will continue to be updated.
+
+Rotabox 0.10.1 changes
+=====================
+    	Changes
+	----------
+	    Some changes in documentation.
+
+	Added
+	--------
+	    Method to retrieve the current coordinates of any point defined in custom_bounds (get_point(pol index, point index)).
+
+	Rotaboxer (bounds editor) changes:
+	==================================
+		Changes
+		----------
+		    File selectors now working properly with kivy 1.10.
+
+		    An .atlas file can also be used as a single image source.
+
+		Added
+		--------
+		    A switch to unlock/lock polygons' exporting order. Before, the order changed everytime a polygon was selected.
+
+		    A switch to determine whether an .atlas file is an animation or not.
 
 
 Rotabox 0.10.0 changes
-======================	
+=====================	
 	
 	Changes
-	--------	
-		Two new collision detection methods replaced the original one, which is now discontinued.
+	----------	
+	    Two new collision detection methods, the default being similar in performance to the original one, which is now discontinued.
 		
-		*custom_bounds*' form has been simplified ([[(0, 0), (1, 0), (1, 1), (0, 1)]])
+	    custom_bounds' form has been simplified ([[(0, 0), (1, 0), (1, 1), (0, 1)]])
 
 	Added
-	-----	
-		Open bounds support.
+	--------	
+	    Open bounds support with the second collision method.
 	
 	Removed
-	-------	
-		Test painting of collidable areas. No need for it anymore, since checking strategy is no longer required.
+	-----------	
+	    Test painting of collidable areas. No need for it anymore, since checking strategy is no longer required.
 	
 	
 	
 	Rotaboxer (bounds editor) changes:
 	==================================
-	
-		** Selecting a polygon, places it last, in the resulting list of polygons.
-		This way, when editing is done, one can determine the order of polygons in the resulting "custom_bounds" by click-selecting them, one after the other, in the required order.
-	
+
+		Changes
+		----------
+		    Selecting a polygon, places it last, in the resulting list of polygons.
+		    This way, when editing is done, one can determine the order of polygons in the resulting "custom_bounds" by click-selecting them, one after the other, in the required order.
+
 		Added
-		-----	
-			** Option to show points and polygons indices.
-			
-			** Color options for polygon drawing
+		--------
+		    Option to show points and polygons indices.
+		
+		    Color options for polygon drawing
 		
 		Removed
-		-------	
-			** Real-time checkpoint inspection removed. No checking strategy needed anymore.
-			
-			** Automatic checkpoint allocation removed. No checking strategy needed anymore.
+		-----------
+		    Real-time checkpoint inspection removed. No checking strategy needed anymore.
 		
-			** Test painting of collidable areasremoved. No checking strategy needed anymore.
+		    Automatic checkpoint allocation removed. No checking strategy needed anymore.
+		
+		    Test painting of collidable areasremoved. No checking strategy needed anymore.
 
 
 
@@ -60,8 +79,7 @@ Rotabox 0.9.0 changes
 		
 		"custom_bounds" ObjectProperty ([[[(0, 0), (1, 0), (1, 1), (0, 1)], [0, 2]]]) (old name: "bounds")
 	
-	
-	
+
 	Added
 	-----	
 		** Touch manipulation added (drag, rotation and zoom).
@@ -78,21 +96,27 @@ Rotabox 0.9.0 changes
 	Rotaboxer (bounds editor) changes:
 	==================================
 	
-	Added
-	-----	
-		** Selecting a polygon, places it first, in the resulting list of polygons.
-			This way, when editing is done, one can determine the order of polygons in the resulting "custom_bounds" by click-selecting them, one after the other, in an order, opposite of the required.
+	        Added
+	        -----
+	            ** Selecting a polygon, places it first, in the resulting list of polygons.
+	                This way, when editing is done, one can determine the order of polygons in the resulting "custom_bounds" by click-selecting them, one after the other, in an order, opposite of the required.
 	
-		** Real-time checkpoint inspection added.
-			Promoting points to checkpoints in a polygon requires some understanding of the Rotabox collision detection concept and can be tricky or even impossible without adding extra points or breaking the polygon into simpler shapes, depending on the shape.
+	            ** Real-time checkpoint inspection added.
+	                Promoting points to checkpoints in a polygon requires some understanding of the Rotabox collision detection concept and can be tricky or even impossible without adding extra points or breaking the polygon into simpler shapes, depending on the shape.
 	
-		** Automatic checkpoint allocation when "Checkpoint" button is checked. Experimental. Always paint-test the bounds after any checkpoint setup.
+	            ** Automatic checkpoint allocation when "Checkpoint" button is checked. Experimental. Always paint-test the bounds after any checkpoint setup.
 	
-		** Transfering points from a polygon to another, added. 
-			Not a positional transfer but a change in linkage. Useful when breaking a polygon is required.
-
-		** Showing points and polygons indices.
-
-
+	            ** Transfering points from a polygon to another, added.
+	                Not a positional transfer but a change in linkage. Useful when breaking a polygon is required.
+	
+	            ** Showing points and polygons indices.
 
 
+
+Versions 0.9 and 0.10
+=====================
+	Rotabox went through a major change, during version 0.9, that led to a version split.
+	Two new collision detection approaches, easier by far for the user, rendered the previous method obsolete.
+	So, while version 0.9 adds features to the earlier version, it's the last of its line.
+	It can be found in the *Rotabox0.9.legacy* folder.
+	Version 0.10, carrying the new methods, will continue to be updated.

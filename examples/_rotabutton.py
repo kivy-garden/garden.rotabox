@@ -2,10 +2,8 @@ from kivy.base import runTouchApp
 from kivy.uix.behaviors import ButtonBehavior
 from kivy.uix.button import Button
 from kivy.uix.floatlayout import FloatLayout
-from kivy.lang import Builder
-import sys, os
-sys.path.append(os.path.abspath(".."))
 from rotabox import Rotabox
+from kivy.lang import Builder
 
 Builder.load_string('''
 <Root>:
@@ -20,8 +18,10 @@ Builder.load_string('''
         on_release:
             self.img_source = 'atlas://data/images/defaulttheme/button'
         angle: 30
+        # draw_bounds: True
         canvas.before:
             BorderImage:
+                id: img
                 source: self.img_source
                 pos: self.pos
                 size: self.size
@@ -36,6 +36,7 @@ class ButtonInRotabox(Rotabox):
         super(ButtonInRotabox, self).__init__(**kwargs)
         self.btn = Button(text='A Button in Rotabox', on_press=self.rotate)
         self.add_widget(self.btn)
+        # self.draw_bounds = True
 
     def on_touch_down(self, touch):
         if self.collide_point(*touch.pos):
@@ -61,4 +62,5 @@ class Root(FloatLayout):
                                    angle=30)
         self.add_widget(self.bir)
 
-runTouchApp(Root())
+if __name__ == '__main__':
+    runTouchApp(Root())

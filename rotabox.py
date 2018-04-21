@@ -1,6 +1,6 @@
 '''
 
-ROTABOX                                           kivy 1.9.0 - python 2.7.10
+ROTABOX                                           kivy 1.10.0 - python 2.7.13
 =======
 
 Rotabox is a *kivy widget* with customizable 2D bounds that follow its rotation.
@@ -27,7 +27,7 @@ Collision detection methods:
     
     * Supports open-shaped bounds, down to just a single line segment.
     
-    * Interacts with Rotaboxes that use either collision method
+    * Interacts with Rotaboxes that use either detection method
         (more expensive if method is different) and regular widgets.
     
     * In a positive check against a Rotabox of the same method, instead of
@@ -42,11 +42,11 @@ Collision detection methods:
         segments), as it can benefit from breaking these shapes into more simple
         ones when making the bounds in the editor.
     
-    * Requires mutual collision checks (Both parties should check for an
-        accurate reading).
+    * Requires mutual collision checks (All involved widgets should check for
+        an accurate reading).
         
-    * Interacts with Rotaboxes that use the same collision method (and regular
-        widgets but behaving, itself, like a regular widget while doing so).
+    * Interacts with Rotaboxes that use the same detection method and regular
+        widgets (but behaving, itself, like a regular widget while doing so).
         
     * In a positive check against a Rotabox of the same method, instead of
         *True*, the checker's collided polygon's index is returned, in a tuple 
@@ -58,11 +58,32 @@ Hidden collision bounds
     A second layer of bounds can have its uses (e.g. in longer distances, acting
     as the 'perception' of an enemy sprite in a game).
 
+Open collision bounds (Segment method only)
+    If a polygon is open, the segment between the last and first points of the
+    polygon is not considered in the collision checks.
+    Since the segment collision method is only concerned with the polygon's
+    sides, a widget can 'enter' an open polygon, passing through the opening,
+    and then hit the back wall from inside, for example.
+    Note that *collide_point* doesn't work for an open polygon (i.e. an open
+    polygon cannot be touched).
+
+Visual point tracking
+    Since a rotating widget doesn't really rotate, its points lose their
+    reference to its visual (Positional properties like [top] or [center] don't
+    rotate).
+    Rotabox can track any of its own points while rotating, provided that they
+    are predefined (Hence, the custom bounds' ability).
+    They then can be accessed using their indices.
+    This can be useful, for example, in changing the point of rotation to a
+    predefined point on the widget while the latter is rotating.
+    These points could be another use for the 'hidden bounds' feature (see
+    above) when using other points for collision detection at the same time.
+
 Touch interactivity
     Since, due to the differences between the Scatter and Rotabox concepts, a
     way to combine the two couldn't be found, Rotabox uses the Scatter widget's
     code, modified to act on the actual size and position of the widget and
-    child(essential for accurate collision detection).
+    child (essential for accurate collision detection).
     It supports single and multitouch drag, rotation and scaling (the latter two
     use the *origin* property in the singletouch option).
 
@@ -236,10 +257,19 @@ Utility interface
     Useful to read in cases where the widget is stationary.
     Signifies the completion of the widget's initial preparations.
 
+**get_point(pol_index, point_index)** *Method*
+    Returns the current position of a certain point.
+    The argument indices are based on user's [custom_bounds]' structure.
+
+**draw_bounds** *BooleanProperty* (False)
+    This option could be useful during testing, as it makes the widget's bounds
+    visible.
+
+
 ___________________________________________________________________________
 A Rotabox example can be seen if this module is run directly.
 
-unjuan 2017
+unjuan 2018
 '''
 
 from kivy.uix.widget import Widget
@@ -256,7 +286,7 @@ from math import radians, atan2, sin, cos
 from itertools import izip
 
 __author__ = 'unjuan'
-__version__ = '0.10.0'
+__version__ = '0.10.1'
 
 __all__ = 'Rotabox'
 
@@ -265,6 +295,13 @@ class Rotabox(Widget):
     '''See module's documentation.'''
 
     __events__ = ('on_transform_with_touch', 'on_touched_to_front')
+
+    '''This should be the image that any custom bounds are meant for.
+    If not defined, widget will try to locate the topmost image in its tree.'''
+    image = ObjectProperty()
+
+    '''The widget's aspect ratio. If not defined, image's ratio will be used.'''
+    aspect_ratio = NumericProperty(0.)
 
     # ------------------------------------------------------ ROTATION INTERFACE
     '''Angle of Rotation.'''
@@ -285,13 +322,6 @@ class Rotabox(Widget):
     origin = AliasProperty(get_origin, set_origin)
 
     # ----------------------------------------------------- COLLISION INTERFACE
-    '''The widget's aspect ratio. If not defined, image's ratio will be used.'''
-    aspect_ratio = NumericProperty(0.)
-
-    '''This should be the image that any custom bounds are meant for.
-    If not defined, widget will try to locate the topmost image in its tree.'''
-    image = ObjectProperty()
-
     '''Custom bounds' definition interface. (See module's documentation).'''
     custom_bounds = ObjectProperty([[(0, 0), (1, 0), (1, 1), (0, 1)]])
 
@@ -360,6 +390,15 @@ class Rotabox(Widget):
     collide_after_children = BooleanProperty(False)
 
     # ------------------------------------------------------- UTILITY INTERFACE
+    '''Access a point's current position, based on [custom_bounds] structure.'''
+    def get_point(self, pol_index, point_index):
+        if self.segment_mode:
+            pindex = self.records[self.curr_key][
+                'sides_index'][pol_index][point_index]
+            return self.groups[pindex[0]].points[pindex[1]]
+        else:
+            return self.groups[pol_index].points[point_index]
+
     def get_scale(self):
         return float(self.width) / self.original_size[0]
 
@@ -443,13 +482,13 @@ class Rotabox(Widget):
         self.bbox = ()
         self.visible_bbox = ()
         self.visible_points = []  # Point mode
-        self.plain_sides_len = 0  # Segment mode
         self.visible_sides = ()  # Segment mode
         self.last_side = 0  # Segment mode
         self.curr_key = '00'  # Segment mode
-        self.index = {}  # An index for segment mode to keep track of the
+        self.records = {}  # An index for segment mode to keep track of the
                          # different polygons' ranges in [groups] (sides).
         self.draw_lines = ()
+        self.draw_hiddlines = ()
         self.box_lines = ()
         self.rotation = Rotate(angle=0, origin=self.center)
         self.canvas.before.add(PushMatrix())
@@ -490,7 +529,10 @@ class Rotabox(Widget):
             # Trying to auto-assign [image] property if not specified.
             self.image = locate_images(self)
         if self.image:
-            self.image.texture.mag_filter = 'nearest'
+            try:
+                self.image.texture.mag_filter = 'nearest'
+            except AttributeError:
+                pass
             self.image.allow_stretch = True
             # In case of a stationary widget with animated bounds.
             self.image.bind(source=self.trigger_update)
@@ -498,7 +540,11 @@ class Rotabox(Widget):
             # Calculating widget's size from available inputs.
             if (not (self.width - scale > 1 or self.height - scale > 1)
                     or self.sized_by_img):
-                self.original_size = self.image.texture_size
+                try:
+                    self.original_size = self.image.texture.size
+                except AttributeError:  # If animation, texture not ready (?)
+                    self.original_size = self.image.size
+
                 if not scale:
                     scale = 1
                 self.size = [self.original_size[0] * scale,
@@ -540,7 +586,10 @@ class Rotabox(Widget):
 
         if self.allow_rotabox:
             # Building widget's bounds.
-            self.define_bounds()
+            if self.segment_mode:
+                self.define_sides()
+            else:
+                self.define_polygons()
 
             # Setting canvas in case of test drawing
             if self.draw_bounds:
@@ -585,7 +634,7 @@ class Rotabox(Widget):
     def update(self, *args):
         '''Updates the widget's angle, point of rotation, bounds and child's
         position.
-        Also runs the [scale] method on size change and the [prepare] method
+        Also runs the [update_size] method on size change and the [prepare] method
         initially and on reset.
         '''
         self.angle %= 360
@@ -611,7 +660,6 @@ class Rotabox(Widget):
                     # An identically keyed atlas file is assumed here.
                     curr_key = self.image.source.split('/')[-1]
                     self.groups = self.frames[curr_key]
-                    self.plain_sides_len = self.index[curr_key][0]
                     self.curr_key = curr_key
                 else:
                     # An identically keyed atlas file is assumed here.
@@ -655,6 +703,11 @@ class Rotabox(Widget):
             else:
                 self.draw_lines += tuple(
                     Line(dash_offset=3, dash_length=5) for _ in xrange(pols))
+
+            if self.hidden_bounds:
+                self.draw_hiddlines += tuple(
+                    Line(close=True, dash_offset=3, dash_length=1) for _ in
+                    xrange(sides))
             self.box_lines += tuple(
                 Line(close=True, dash_offset=3, dash_length=5) for _ in
                 xrange(sides))
@@ -667,6 +720,8 @@ class Rotabox(Widget):
                 xrange(pols))
         for line in self.draw_lines:
             self.canvas.after.add(line)
+        for hline in self.draw_hiddlines:
+            self.canvas.after.add(hline)
         for line in self.box_lines:
             self.canvas.after.add(line)
 
@@ -674,20 +729,36 @@ class Rotabox(Widget):
         self.x += .001
 
     def draw(self):
-        '''If [draw_bounds] is True, visualises the widget's bounds.
-        For testing.'''
+        '''
+        If [draw_bounds] is True, visualises the widget's bounds.
+        For testing.
+        '''
         try:
             if self.segment_mode:
                 if self.open_bounds:
-                    for i in xrange(len(self.groups)):
-                        self.draw_lines[i].points = [n for point
-                                                     in self.groups[i].points
-                                                     for n in point]
+                    for i, side in enumerate(self.groups):
+                        if side.id[0] not in self.hidden_bounds:
+                            self.draw_lines[i].points = [n for point
+                                                         in side.points
+                                                         for n in point]
+                        else:
+                            self.draw_hiddlines[i].points = [n for point
+                                                             in side.points
+                                                             for n in point]
                 else:
-                    pols_lens = self.index[self.curr_key][1]
+                    pols_lens = self.records[self.curr_key]['pols_lens']
                     length = 0
                     for i, leng in enumerate(pols_lens):
-                        self.draw_lines[i].points = [n
+                        if i not in self.hidden_bounds:
+                            self.draw_lines[i].points = [n
+                                                         for j in xrange(length,
+                                                                         length
+                                                                         + leng)
+                                                         for point
+                                                         in self.groups[j].points
+                                                         for n in point]
+                        else:
+                            self.draw_hiddlines[i].points = [n
                                                      for j in xrange(length,
                                                                      length
                                                                      + leng)
@@ -695,9 +766,9 @@ class Rotabox(Widget):
                                                      in self.groups[j].points
                                                      for n in point]
                         length += leng
-                # for i in xrange(len(self.sides)):
-                #     box = self.sides[i].bbox
-                #     self.draw_color.rgba = .8, .2, 0, 1
+
+                # for i in xrange(len(self.groups)):
+                #     box = self.groups[i].bbox
                 #     self.box_lines[i].points = [box[0], box[1],
                 #                                 box[2], box[1],
                 #                                 box[2], box[3],
@@ -708,13 +779,11 @@ class Rotabox(Widget):
                                                  in self.groups[i].points
                                                  for n in point]
                     # box = self.polygons[i].bbox
-                    # self.draw_color.rgba = .8, .2, 0, 1
                     # self.box_lines[i].points = [box[0], box[1],
                     #                             box[2], box[1],
                     #                             box[2], box[3],
                     #                             box[0], box[3]]
             # box = self.bbox
-            # self.box_color.rgba = .8, .2, 0, 1
             # self.box_lines[0].points = (box[0], box[1],
             #                         box[2], box[1],
             #                         box[2], box[3],
@@ -723,64 +792,62 @@ class Rotabox(Widget):
             pass
 
     # ------------------------------------------------------ BOUNDS & COLLISION
-    def define_bounds(self):
-        '''Organising the data from the user's [self.custom_bounds] hints.'''
-        if self.segment_mode:
-            if isinstance(self.custom_bounds, dict):   # Animation case
-                for key, frame in self.custom_bounds.iteritems():
-                    sides, plains, ajar = make_bounds(frame,
-                                                      self.hidden_bounds,
-                                                      self.open_bounds, True)
-                    scale_bounds(self.size, sides)
-                    self.frames[key] = sides
-
-                    # Keeping a reference to the input structure, since the
-                    # latter has to change to a single sequence of sides.
-                    l = 0
-                    pollens = []
-                    pindices = []
-                    for i, pol in enumerate(frame):
-                        if i not in self.open_bounds:
-                            pollens.append(len(pol))
-                            l += len(pol)
-                        else:
-                            pollens.append(len(pol) - 1)
-                            l += len(pol) - 1
-                        pindices.append(l)
-                    self.index[key] = plains, pollens, pindices, ajar
-            if isinstance(self.custom_bounds, list):  # Single image case
-                sides, plains, ajar = make_bounds(self.custom_bounds,
-                                                  self.hidden_bounds,
-                                                  self.open_bounds, True)
+    def define_sides(self):
+        '''Organising the data from the user's [self.custom_bounds] hints
+        for 'segment intersection' detection method.
+        '''
+        if isinstance(self.custom_bounds, dict):   # Animation case
+            for key, frame in self.custom_bounds.iteritems():
+                sides, sindices = make_sides(frame, self.open_bounds)
                 scale_bounds(self.size, sides)
-                self.groups = sides
-                # Keeping a reference to the input structure, since the
-                # latter has to change to a single sequence of sides.
+                self.frames[key] = sides
                 l = 0
                 pollens = []
                 pindices = []
-                for i, pol in enumerate(self.custom_bounds):
-                    if i not in self.open_bounds:
-                        pollens.append(len(pol))
-                        l += len(pol)
-                    else:
-                        pollens.append(len(pol) - 1)
-                        l += len(pol) - 1
+                polends = []
+                for pol in frame:
+                    pollens.append(len(pol))
                     pindices.append(l)
-                self.index[self.curr_key] = plains, pollens, pindices, ajar
-                self.plain_sides_len = plains
-        else:
-            if isinstance(self.custom_bounds, dict):   # Animation case
-                for key, frame in self.custom_bounds.iteritems():
-                    polygons = make_bounds(frame,
-                                           self.hidden_bounds, [], False)
-                    scale_bounds(self.size, polygons)
-                    self.frames[key] = polygons
-            if isinstance(self.custom_bounds, list):  # Single image case
-                polygons = make_bounds(self.custom_bounds,
-                                       self.hidden_bounds, [], False)
+                    l += len(pol)
+                    polends.append(l)
+                self.records[key] = {'pols_lens': pollens,
+                                              'pols_index': pindices,
+                                              'pols_ends': polends,
+                                              'sides_index': sindices}
+        if isinstance(self.custom_bounds, list):  # Single image case
+            sides, sindices = make_sides(self.custom_bounds,
+                                         self.open_bounds)
+            scale_bounds(self.size, sides)
+            self.groups = sides
+            l = 0
+            pollens = []
+            pindices = []
+            polends = []
+            for pol in self.custom_bounds:
+                pollens.append(len(pol))
+                pindices.append(l)
+                l += len(pol)
+                polends.append(l)
+            self.records[self.curr_key] = {'pols_lens': pollens,
+                                           'pols_index': pindices,
+                                           'pols_ends': polends,
+                                           'sides_index': sindices}
+
+        self.update_bounds(self.groups, True, self.radiangle, self.pos)
+
+    def define_polygons(self):
+        '''Organising the data from the user's [self.custom_bounds] hints
+        for 'point in polygon' detection method.
+        '''
+        if isinstance(self.custom_bounds, dict):  # Animation case
+            for key, frame in self.custom_bounds.iteritems():
+                polygons = make_polygons(frame)
                 scale_bounds(self.size, polygons)
-                self.groups = polygons
+                self.frames[key] = polygons
+        if isinstance(self.custom_bounds, list):  # Single image case
+            polygons = make_polygons(self.custom_bounds)
+            scale_bounds(self.size, polygons)
+            self.groups = polygons
 
         self.update_bounds(self.groups, True, self.radiangle, self.pos)
 
@@ -796,7 +863,7 @@ class Rotabox(Widget):
             motbpoint = ()
             rotbpoint = ()
             for s, side in enumerate(groups):
-                if s in self.index[self.curr_key][2]:
+                if s in self.records[self.curr_key]['pols_index']:
                     # Resetting to calculate the first point of each polygon.
                     motbpoint = ()
                     rotbpoint = ()
@@ -814,11 +881,11 @@ class Rotabox(Widget):
                 self.visible_bbox = self.bbox
                 return
 
-            plains = [groups[i] for i in xrange(self.plain_sides_len)]
-            bboxes = [side.bbox for side in plains]
-
+            plains = [side for side in groups
+                      if side.id[0] not in self.hidden_bounds]
             self.visible_sides = plains
-            self.visible_bbox = calculate_bbox(bboxes=bboxes)
+            self.visible_bbox = calculate_bbox(bboxes=[side.bbox
+                                                       for side in plains])
         else:
             points = []
             bboxes = ()
@@ -838,29 +905,26 @@ class Rotabox(Widget):
                 self.visible_bbox = self.bbox
                 return
 
-            hidden_pols = [pol for pol in groups if pol.hidden]
-            plain_pols = [pol for pol in groups if pol not in hidden_pols]
-            points = [point for pol in plain_pols for point in pol.points]
-
-            # Placing any hidden bounds to be last in collision checks.
-            self.groups = plain_pols + hidden_pols
-            self.visible_points = points
+            plain_pols = [pol for p, pol in enumerate(groups)
+                          if p not in self.hidden_bounds]
+            self.visible_points = [point for pol in plain_pols
+                                   for point in pol.points]
             self.visible_bbox = calculate_bbox(bboxes=[pol.bbox
                                                        for pol in plain_pols])
 
     def collide_point(self, x=0, y=0):
         '''"Oddeven" point-in-polygon method:
-        Checking the membership of touch point by assuming a ray from that
-        point to infinity (to window right) and counting the number of
-        polygon sides that this ray crosses. If this number is odd,
-        the point is inside; if even, the point is outside.
+        Checking the membership of touch point by assuming a ray at 0 angle
+        from that point to infinity (through window right) and counting the
+        number of polygon sides that this ray crosses. If this number is odd,
+        the point is inside; if it's even, the point is outside.
         '''
         if self.allow_rotabox:
             if self.segment_mode:
-                key = self.index[self.curr_key]
                 prevrang = 0
-                for r, rang in enumerate(key[2]):
-                    if r in key[3]:
+                for r, rang in enumerate(
+                        self.records[self.curr_key]['pols_ends']):
+                    if r in self.open_bounds:
                         continue
                     c = False
                     for i in xrange(prevrang, rang):
@@ -1017,7 +1081,7 @@ class Rotabox(Widget):
             self.last_touch_pos[touch] = x, y
 
         if self.collide_point(x, y):
-                return True
+            return True
 
     def transform_with_touch(self, touch):
         changed = False
@@ -1047,11 +1111,6 @@ class Rotabox(Widget):
                 self.angle += angle
             if self.single_touch_scaling:
                 scale = new_line.length() / old_line.length()
-                # new_scale = scale * self.scale
-                # if new_scale < self.scale_min:
-                #     scale = self.scale_min / float(self.scale)
-                # elif new_scale > self.scale_max:
-                #     scale = self.scale_max / float(self.scale)
                 self.scale *= scale
             changed = True
 
@@ -1084,17 +1143,11 @@ class Rotabox(Widget):
         if not old_line.length():   # div by zero
             return changed
 
-        # if self.multi_touch_rotation:
         angle = new_line.angle(old_line) * self.multi_touch_rotation
         self.angle += angle
 
         if self.multi_touch_scaling:
             scale = new_line.length() / old_line.length()
-            # new_scale = scale * self.scale
-            # if new_scale < self.scale_min:
-            #     scale = self.scale_min / float(self.scale)
-            # elif new_scale > self.scale_max:
-            #     scale = self.scale_max / float(self.scale)
             self.scale *= scale
             changed = True
         return changed
@@ -1137,22 +1190,19 @@ class Rotabox(Widget):
         '''
         pass
 
-    # ---------------------------------------------------------- SIZE_HINT LOCK
-    # Locking size_hint property to None, None,
-    # in order to keep intended aspect ratio (critical for custom_bounds).
+    # --------------------------------------------------------------- UTILITIES
     def get_size_hint_x(self):
         return None
-
     def set_size_hint_x(self, value):
         raise Exception("Rotabox can't use size_hint.")
     size_hint_x = AliasProperty(get_size_hint_x, set_size_hint_x)
-
     def get_size_hint_y(self):
         return None
-
     def set_size_hint_y(self, value):
         raise Exception("Rotabox can't use size_hint.")
     size_hint_y = AliasProperty(get_size_hint_y, set_size_hint_y)
+    # Locking size_hint property to None, None,
+    # in order to keep intended aspect ratio (critical for custom_bounds).
     size_hint = ReferenceListProperty(size_hint_x, size_hint_y)
 
     # Used for calculating the widget's scale. It's the user's input size
@@ -1164,133 +1214,40 @@ class Rotabox(Widget):
     pivot_bond = ListProperty([.5, .5])
 
 
-class Group(object):
-    '''An object to keep each polygon's or side's data.'''
-    __slots__ = 'id', 'hints', 'ref_pts', 'rel_pts', 'points', 'bbox', 'hidden'
-
-    def __init__(self):
-        self.id = ()  # Side's container polygon's original index, side's index
-                      # in said polygon (segment collision mode).
-        self.hints = ()  # User's relative points.
-        self.ref_pts = ()  # Translated points due to sizing before any motion.
-        self.rel_pts = []  # Translated points due to motion before rotation.
-        self.points = []  # Translated points due to rotation. Final points,
-                          # used for the collision tests.
-        self.bbox = ()  # Polygon's or side's axis-aligned bounding box.
-        self.hidden = False  # Polygon 'invisible' to others' checks
-                             # (point collision mode).
-
-
-def locate_images(root):
-    '''Traversing the widget tree to find the topmost Image to assign to
-    [image] property.'''
-    the_one = None
-
-    def find_img(widget):
-        for kid in widget.children:
-            img = find_img(kid)
-            if isinstance(kid, Image):
-                return kid
-            return img
-    for child in root.children:
-        the_one = find_img(child)
-        if isinstance(child, Image):
-            return child
-    return the_one
-
-
-def make_bounds(frame, hidden, opens, seg_mode):
-    '''Constructing polygon or side objects to organize, keep and update
+# -------------------------------- SEGMENT INTERSECTION DETECTION
+def make_sides(frame, opens=None):
+    '''
+    Constructing side objects to organize, keep and update
     the bounds' points' data.
     '''
-    if seg_mode:
-        # Construction of side objects.
-        sides = ()
-        pairs = []
-        ajar = opens[:]
-        temp = []
-        for p, pol in enumerate(frame):
-            if p not in hidden:
-                for i in xrange(len(pol)):
-                    if p not in opens:
-                        k = (i + 1) % len(pol)
-                    elif i + 1 < len(pol):
-                        k = i + 1
-                    else:
-                        continue
-                    pairs.append((p, i, pol[i], pol[k]))
-            elif p in opens:
-                ajar.remove(p)
-                temp.append(p)
+    sides = ()
+    pairs = [(p, i, pol[i], pol[(i + 1) % len(pol)
+                                if p not in opens
+                                else i + 1
+                                if i + 1 < len(pol)
+                                else i])
+             for p, pol in enumerate(frame)
+             for i in xrange(len(pol))]
+    pl = len(pairs)
 
-        # A small pause before continuing with the hidden segments
-        ajar += temp
-        plains = len(pairs) - len(temp)
-
-        for idx in hidden:
-            for j in xrange(len(frame[idx])):
-                if idx not in opens:
-                    g = (j + 1) % len(frame[idx])
-                elif j + 1 < len(frame[idx]):
-                    g = j + 1
-                else:
-                    continue
-                pairs.append((idx, j, frame[idx][j],  frame[idx][g]))
-
-        pl = len(pairs)
-        for k in xrange(pl):
+    sindices = [[] for _ in xrange(len(frame))]
+    sindex = []
+    for k in xrange(pl):
+        if pairs[k][2] != pairs[k][3]:
             side = Group()
             side.id = pairs[k][0], pairs[k][1]
             side.hints = pairs[k][2], pairs[k][3]
             sides += (side,)
-        return sides, plains, ajar
-    else:
-        # Construction of polygon objects.
-        polygons = ()
-        for i in xrange(len(frame)):
-            pol = Group()
-            pol.hints = frame[i]
-            if i in hidden:
-                pol.hidden = True
-            polygons += (pol,)
-        return polygons
-
-
-def scale_bounds(size, groups):
-    '''Scaling polygons or sides by updating their [ref_pts] list.'''
-    for obj in groups:
-        obj.points = obj.rel_pts = obj.ref_pts = tuple(
-            tuple(x * y for x, y in izip(point, size))
-            for point in obj.hints)
-
-
-def to_rotated(point, orig, angle, arctan, sine, cosine):
-    '''Tranlating a point acccording to widget's rotation.'''
-    dx = point[0] - orig[0]
-    dy = point[1] - orig[1]
-    distance = (dx * dx + dy * dy) ** .5
-    angle = (angle + arctan(dy, dx)) % 6.283  # 2pi
-    return (orig[0] + distance * cosine(angle),
-            orig[1] + distance * sine(angle))
-
-
-def calculate_bbox(points=None, bboxes=None):
-    '''An axis-aligned bounding box, calculated from points or bboxes.'''
-    if points:
-        left, bottom = map(min, *points)
-        right, top = map(max, *points)
-        return left, bottom, right, top
-    if bboxes:
-        if len(bboxes) > 1:
-            left, bottom, _, _ = map(min, *bboxes)
-            _, _, right, top = map(max, *bboxes)
-            return left, bottom, right, top
+            sindex.append((sides.index(side), 0))
         else:
-            return bboxes[0]
-    return ()
+            sindex.append((sindex[-1][0], 1))
+        if not k + 1 < pl or pairs[k + 1][0] != pairs[k][0]:
+            sindices[pairs[k][0]] += sindex[:]
+            del sindex[:]
+
+    return sides, sindices
 
 
-# -------------------------------- SEGMENT (INTERSECTION) MODE
 def move_sides(side, pos, apoint):
     '''Translating sides by updating their [rel_pts] list.'''
     if apoint:
@@ -1336,8 +1293,6 @@ def collide_sides(sides, that_box, those_sides, last):
             continue
 
         v1, v2 = side.points
-        d1 = v2[0] - v1[0]
-        d2 = v2[1] - v1[1]
         for a_side in those_sides:
             try:
                 # Preliminary 2: side's bbox vs widget's side's bbox.
@@ -1351,34 +1306,47 @@ def collide_sides(sides, that_box, those_sides, last):
                 if box[1] > a_box[3]:
                     continue
                 v3, v4 = a_side.points
-            except AttributeError:  # If the other not in [segment_mode].
+            except AttributeError:  # If the other not in segment mode.
                 v3, v4 = a_side[0], a_side[1]
-            d3 = v4[0] - v3[0]
-            d4 = v4[1] - v3[1]
             # Main check:
             # If the vertices v1 and v2 are not on opposite sides of the segment
             # v3, v4, or the vertices v3 and v4 are not on opposite sides of
             # the segment v1, v2, there's no intersection.
-            if ((d3 * (v1[1] - v3[1]) - (v1[0] - v3[0]) * d4 > 0)
-                    == (d3 * (v2[1] - v3[1]) - (v2[0] - v3[0]) * d4 > 0)):
+            if (((v4[0] - v3[0]) * (v1[1] - v3[1]) - (v1[0] - v3[0]) * (
+                v4[1] - v3[1]) > 0)
+                    == ((v4[0] - v3[0]) * (v2[1] - v3[1]) - (v2[0] - v3[0]) * (
+                    v4[1] - v3[1]) > 0)):
                 continue
-            elif ((d1 * (v3[1] - v1[1]) - (v3[0] - v1[0]) * d2 > 0)
-                  == (d1 * (v4[1] - v1[1]) - (v4[0] - v1[0]) * d2 > 0)):
+            elif (((v2[0] - v1[0]) * (v3[1] - v1[1]) - (v3[0] - v1[0]) * (
+                v2[1] - v1[1]) > 0)
+                    == ((v2[0] - v1[0]) * (v4[1] - v1[1]) - (v4[0] - v1[0]) * (
+                    v2[1] - v1[1]) > 0)):
                 continue
             try:
                 return [side.id, a_side.id, i]
-            except AttributeError:
+            except AttributeError:  # If the other not in segment mode.
                 return [side.id, those_sides.index(a_side), i]
     return False
 
 
-# ------------------------------------ POINT (IN POLYGON) MODE
+# ------------------------------------ POINT IN POLYGON DETECTION
+def make_polygons(frame):
+    '''
+    Constructing polygon objects to organize, keep and update
+    the bounds' points' data.
+    '''
+    polygons = ()
+    for i in xrange(len(frame)):
+        pol = Group()
+        pol.hints = frame[i]
+        polygons += (pol,)
+    return polygons
+
+
 def move_polygons(angle, pol, pos):
     '''Translating polygons by updating their [rel_pts] list.'''
-    pol.rel_pts = [[x + y for x, y in izip(point, pos)]
+    pol.points = pol.rel_pts = [[x + y for x, y in izip(point, pos)]
                    for point in pol.ref_pts]
-    if not angle:
-        pol.points = pol.rel_pts
 
 
 def rotate_polygons(origin, angle, pol):
@@ -1418,10 +1386,10 @@ def collide_polygons(polygons, alien):
         points = pol.points
         ppl = len(points)
         # Main check ('oddeven' point-in-polygon method):
-        # Checking the membership of each point by assuming a ray from that
-        # point to infinity (through window right in this case) and counting
-        # the number of polygon sides that this ray crosses. If this number is
-        # odd, the point is inside; if even, the point is outside.
+        # Checking the membership of each point by assuming a ray at 0 angle
+        # from that point to infinity (through window right) and counting the
+        # number of polygon sides that this ray crosses. If this number is odd,
+        # the point is inside; if it's even, the point is outside.
         for x, y in aliens:
             j = ppl - 1
             c = False
@@ -1437,6 +1405,78 @@ def collide_polygons(polygons, alien):
     return False
 
 
+# ------------------------------------ UTILITIES
+class Group(object):
+    '''An object to keep each polygon's or side's data.'''
+    __slots__ = 'id', 'hints', 'ref_pts', 'rel_pts', 'points', 'bbox'
+
+    def __init__(self):
+        self.id = ()  # Side's container polygon's original index, side's index
+                      # in said polygon (segment collision mode).
+        self.hints = ()  # User's relative points.
+        self.ref_pts = ()  # Translated points due to sizing before any motion.
+        self.rel_pts = []  # Translated points due to motion before rotation.
+        self.points = []  # Translated points due to rotation. Final points,
+                          # used for the collision tests.
+        self.bbox = ()  # Polygon's or side's axis-aligned bounding box.
+
+
+def scale_bounds(size, groups):
+    '''Scaling polygons or sides by updating their [ref_pts] list.'''
+    for obj in groups:
+        obj.points = obj.rel_pts = obj.ref_pts = tuple(
+            tuple(x * y for x, y in izip(point, size))
+            for point in obj.hints)
+
+
+def to_rotated(point, orig, angle, arctan, sine, cosine):
+    '''Tranlating a point acccording to widget's rotation.'''
+    dx = point[0] - orig[0]
+    dy = point[1] - orig[1]
+    distance = (dx * dx + dy * dy) ** .5
+    angle = (angle + arctan(dy, dx)) % 6.283  # 2pi
+
+    return (orig[0] + distance * cosine(angle),
+            orig[1] + distance * sine(angle))
+
+
+def calculate_bbox(points=None, bboxes=None):
+    '''An axis-aligned bounding box, calculated from points or bboxes.'''
+    if points:
+        left, bottom = map(min, *points)
+        right, top = map(max, *points)
+        return left, bottom, right, top
+    if bboxes:
+        if len(bboxes) > 1:
+            left, bottom, _, _ = map(min, *bboxes)
+            _, _, right, top = map(max, *bboxes)
+            return left, bottom, right, top
+        else:
+            return bboxes[0]
+    return ()
+
+
+def locate_images(root):
+    '''
+    Traversing the widget tree to find the first topmost Image to assign to
+    [image] property.
+    '''
+    the_one = None
+
+    def find_img(widget):
+        for kid in widget.children:
+            img = find_img(kid)
+            if isinstance(kid, Image):
+                return kid
+            return img
+
+    for child in root.children:
+        the_one = find_img(child)
+        if isinstance(child, Image):
+            return child
+    return the_one
+
+
 # ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 '''THIS IS THE END OF THE ACTUAL MODULE. THE REST, IS JUST A USAGE EXAMPLE.'''
 # vvvvvvvvvvvvvvvvvvvv (Run the module directly, to watch) vvvvvvvvvvvvvvvvvvv
@@ -1448,31 +1488,34 @@ if __name__ == '__main__':
     Builder.load_string('''
 <Root>:
     blue: blue
-    clear: clear
+    red: red
     Rotabox:
         id: blue
-        size: 320, 320
+        size: 200, 132
         pivot: 250, 300
         single_touch_rotation: True
         single_touch_scaling: True
         custom_bounds:
-            [[(0.225, 0.685), (0.222, 0.405), (0.353, 0.278),
-            (0.356, 0.435), (0.53, 0.261), (0.849, 0.587),
-            (0.515, 0.553), (0.386, 0.683), (0.384, 0.526)]]
+            [[(0.018, 0.335), (0.212, 0.042), (0.217, 0.408),
+            (0.48, -0.004), (0.988, 0.758), (0.458, 0.665), (0.26, 0.988),
+            (0.268, 0.585), (0.02, 0.977)]]
         Image:
-            source: 'data/logo/kivy-icon-256.png'
-            color: 0, .2, .7, 1
+            source: 'examples/kivy.png'
+            # color: .4, 0, .7, 1
+            color: .5, .5, 0, 1
     Rotabox:
-        id: clear
+        id: red
         size: 200, 132
         pivot: 600, 300
         allow_drag: True
         custom_bounds:
-            [[(0.013, 0.985), (0.016, 0.407), (0.202, 0.696)],
-            [(0.267, 0.346), (0.483, -0.005), (0.691, 0.316), (0.261, 0.975)],
-            [(0.539, 0.674), (0.73, 0.37), (0.983, 0.758)],
-            [(0.033, 0.315), (0.212, 0.598), (0.218, 0.028)]]
-        draw_bounds: True
+            [[(0.018, 0.335), (0.212, 0.042), (0.217, 0.408),
+            (0.48, -0.004), (0.988, 0.758), (0.458, 0.665), (0.26, 0.988),
+            (0.268, 0.585), (0.02, 0.977)]]
+        Image:
+            source: 'examples/kivy.png'
+            # color: .7, 0, .2, 1
+            color: .5, 0, .5, 1
      ''')
 
     class Root(Widget):
@@ -1482,7 +1525,7 @@ if __name__ == '__main__':
 
         def update(self, *args):
             this = self.blue
-            that = self.clear
+            that = self.red
             if this.collide_widget(that):
                 that.x += 1
                 this.x -= 1
