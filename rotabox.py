@@ -502,7 +502,8 @@ class Rotabox(Widget):
                   image=self.on_reset,
                   aspect_ratio=self.on_reset,
                   custom_bounds=self.on_reset,
-                  hidden_bounds=self.on_reset)
+                  hidden_bounds=self.on_reset,
+                  allow_rotabox=self.on_reset)
 
     def add_widget(self, widget, **kwargs):
         '''Birth control.'''
