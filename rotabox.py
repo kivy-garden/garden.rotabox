@@ -286,7 +286,7 @@ from math import radians, atan2, sin, cos
 from itertools import izip
 
 __author__ = 'unjuan'
-__version__ = '0.10.1'
+__version__ = '0.10.2'
 
 __all__ = 'Rotabox'
 
