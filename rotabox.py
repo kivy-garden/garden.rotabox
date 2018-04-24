@@ -454,8 +454,13 @@ class Rotabox(Widget):
     itself can be used to position the widget, much like [pos] or [center].'''
     pivot = ReferenceListProperty(pivot_x, pivot_y)
 
-    '''Signifies the completion of the widget's initial preparations.'''
+    '''Signifies the completion of the widget's initial preparations.
+    Also, its state changes to True after every size change or reset.'''
     ready = BooleanProperty(False)
+
+    '''Its state change signifies a reset. The reset completion signal, however,
+    is the consequent [ready] state change to True.'''
+    prepared = BooleanProperty(False)
 
     '''Enables bounds visualization (for testing).'''
     draw_bounds = BooleanProperty(False)
@@ -476,7 +481,6 @@ class Rotabox(Widget):
         self.last_pos = [0, 0]
         self.last_size = self.size[:]
         self.radiangle = 0.
-        self.prepared = False
         self.frames = {}
         self.groups = ()  # polygons if point mode - sides if segment mode
         self.bbox = ()
@@ -806,15 +810,20 @@ class Rotabox(Widget):
                 pollens = []
                 pindices = []
                 polends = []
-                for pol in frame:
-                    pollens.append(len(pol))
+
+                for i, pol in enumerate(frame):
+                    if i not in self.open_bounds:
+                        pollens.append(len(pol))
+                        l += len(pol)
+                    else:
+                        pollens.append(len(pol) - 1)
+                        l += len(pol) - 1
                     pindices.append(l)
-                    l += len(pol)
                     polends.append(l)
                 self.records[key] = {'pols_lens': pollens,
-                                              'pols_index': pindices,
-                                              'pols_ends': polends,
-                                              'sides_index': sindices}
+                                     'pols_index': pindices,
+                                     'pols_ends': polends,
+                                     'sides_index': sindices}
         if isinstance(self.custom_bounds, list):  # Single image case
             sides, sindices = make_sides(self.custom_bounds,
                                          self.open_bounds)
@@ -824,10 +833,15 @@ class Rotabox(Widget):
             pollens = []
             pindices = []
             polends = []
-            for pol in self.custom_bounds:
-                pollens.append(len(pol))
+
+            for i, pol in enumerate(self.custom_bounds):
+                if i not in self.open_bounds:
+                    pollens.append(len(pol))
+                    l += len(pol)
+                else:
+                    pollens.append(len(pol) - 1)
+                    l += len(pol) - 1
                 pindices.append(l)
-                l += len(pol)
                 polends.append(l)
             self.records[self.curr_key] = {'pols_lens': pollens,
                                            'pols_index': pindices,
@@ -1431,7 +1445,7 @@ def scale_bounds(size, groups):
 
 
 def to_rotated(point, orig, angle, arctan, sine, cosine):
-    '''Tranlating a point acccording to widget's rotation.'''
+    '''Translating a point acccording to widget's rotation.'''
     dx = point[0] - orig[0]
     dy = point[1] - orig[1]
     distance = (dx * dx + dy * dy) ** .5
@@ -1492,9 +1506,7 @@ if __name__ == '__main__':
     red: red
     Rotabox:
         id: blue
-        size: 200, 132
         pivot: 250, 300
-        single_touch_rotation: True
         single_touch_scaling: True
         custom_bounds:
             [[(0.018, 0.335), (0.212, 0.042), (0.217, 0.408),
@@ -1502,20 +1514,18 @@ if __name__ == '__main__':
             (0.268, 0.585), (0.02, 0.977)]]
         Image:
             source: 'examples/kivy.png'
-            # color: .4, 0, .7, 1
             color: .5, .5, 0, 1
     Rotabox:
         id: red
-        size: 200, 132
         pivot: 600, 300
         allow_drag: True
+        multi_touch_scaling: True
         custom_bounds:
             [[(0.018, 0.335), (0.212, 0.042), (0.217, 0.408),
             (0.48, -0.004), (0.988, 0.758), (0.458, 0.665), (0.26, 0.988),
             (0.268, 0.585), (0.02, 0.977)]]
         Image:
             source: 'examples/kivy.png'
-            # color: .7, 0, .2, 1
             color: .5, 0, .5, 1
      ''')
 
