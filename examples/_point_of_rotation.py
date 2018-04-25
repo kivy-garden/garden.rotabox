@@ -2,6 +2,8 @@ from kivy.base import runTouchApp
 from kivy.lang import Builder
 from kivy.clock import Clock
 from kivy.uix.widget import Widget
+import sys, os
+sys.path.append(os.path.abspath(".."))
 from rotabox import Rotabox
 
 Builder.load_string('''

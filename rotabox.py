@@ -139,8 +139,8 @@ Customizing the Collidable Area
 
 **Rotaboxer** Visual editor.
     A convenient way to define the *custom_bounds* of a Rotabox widget.
-    To use it, run *rotaboxer.py* directly. It can be found at the repository
-    root.
+    To use it, run *rotaboxer.py* directly. It can be found in the
+    *Visual Editor* folder, at the repository.
     Open a *.png* image or an *.atlas* file in the editor, draw bounds for it
     and export the resulting code to clipboard, to use in a Rotabox widget.
 
@@ -240,13 +240,6 @@ Multitouch rotation/scaling:
 _________________
 Utility interface
 
-**scale** *AliasProperty*
-    Current widget's scale.
-
-**scale_min** *NumericProperty* (0.01)
-**scale_max** *NumericProperty* (1e20)
-    Optional scale restrictions.
-
 **pivot** *ReferenceListProperty*
     The point of rotation and scaling.
     While *origin* property sets *pivot*'s position, relatively to widget's
@@ -254,8 +247,13 @@ Utility interface
     like *pos* or *center*.
 
 **ready** *BooleanProperty* (False)
-    Useful to read in cases where the widget is stationary.
-    Signifies the completion of the widget's initial preparations.
+ Useful to read in cases where the widget is stationary.
+ Signifies the completion of the widget's initial preparations.
+ Also, its state changes to True after every size change or reset.
+
+**prepared** *BooleanProperty* (False)
+ Its state change signifies a reset.
+ The reset completion signal, however, is the consequent [ready] state change to True.
 
 **get_point(pol_index, point_index)** *Method*
     Returns the current position of a certain point.
@@ -264,6 +262,13 @@ Utility interface
 **draw_bounds** *BooleanProperty* (False)
     This option could be useful during testing, as it makes the widget's bounds
     visible.
+
+**scale** *AliasProperty*
+    Current widget's scale.
+
+**scale_min** *NumericProperty* (0.01)
+**scale_max** *NumericProperty* (1e20)
+    Optional scale restrictions.
 
 
 ___________________________________________________________________________
@@ -286,7 +291,7 @@ from math import radians, atan2, sin, cos
 from itertools import izip
 
 __author__ = 'unjuan'
-__version__ = '0.10.2'
+__version__ = '0.11.0'
 
 __all__ = 'Rotabox'
 
@@ -820,6 +825,7 @@ class Rotabox(Widget):
                         l += len(pol) - 1
                     pindices.append(l)
                     polends.append(l)
+
                 self.records[key] = {'pols_lens': pollens,
                                      'pols_index': pindices,
                                      'pols_ends': polends,
@@ -843,11 +849,11 @@ class Rotabox(Widget):
                     l += len(pol) - 1
                 pindices.append(l)
                 polends.append(l)
+
             self.records[self.curr_key] = {'pols_lens': pollens,
                                            'pols_index': pindices,
                                            'pols_ends': polends,
                                            'sides_index': sindices}
-
         self.update_bounds(self.groups, True, self.radiangle, self.pos)
 
     def define_polygons(self):
@@ -1243,8 +1249,8 @@ def make_sides(frame, opens=None):
                                 else i])
              for p, pol in enumerate(frame)
              for i in xrange(len(pol))]
-    pl = len(pairs)
 
+    pl = len(pairs)
     sindices = [[] for _ in xrange(len(frame))]
     sindex = []
     for k in xrange(pl):
@@ -1256,6 +1262,7 @@ def make_sides(frame, opens=None):
             sindex.append((sides.index(side), 0))
         else:
             sindex.append((sindex[-1][0], 1))
+
         if not k + 1 < pl or pairs[k + 1][0] != pairs[k][0]:
             sindices[pairs[k][0]] += sindex[:]
             del sindex[:]
@@ -1521,9 +1528,11 @@ if __name__ == '__main__':
         allow_drag: True
         multi_touch_scaling: True
         custom_bounds:
-            [[(0.018, 0.335), (0.212, 0.042), (0.217, 0.408),
-            (0.48, -0.004), (0.988, 0.758), (0.458, 0.665), (0.26, 0.988),
-            (0.268, 0.585), (0.02, 0.977)]]
+            [[(0.013, 0.985), (0.016, 0.407), (0.202, 0.696)],
+            [(0.267, 0.346), (0.483, -0.005), (0.691, 0.316), (0.261, 0.975)],
+            [(0.539, 0.674), (0.73, 0.37), (0.983, 0.758)],
+            [(0.033, 0.315), (0.212, 0.598), (0.218, 0.028)]]
+        # draw_bounds: True
         Image:
             source: 'examples/kivy.png'
             color: .5, 0, .5, 1

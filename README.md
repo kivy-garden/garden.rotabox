@@ -23,7 +23,7 @@ ___
 * Segment intersection detection (Default method):  
     (See [Introduction to Algorithms 3rd Edition](https://mitpress.mit.edu/books/introduction-algorithms) (ch.33 Computational Geometry)  
     and ['Line Segment Intersection' lecture notes by Jeff Erickson] (http://jeffe.cs.illinois.edu/teaching/373/notes/x06-sweepline.pdf))
-    * Supports open-shaped bounds, down to just a single line segment.
+    * Supports open-shaped bounds.
     * Interacts with Rotaboxes that use either collision method (more expensive if method is different) and regular widgets.
     * In a positive check against a Rotabox of the same method, instead of *True*, both the intersected sides' indices and their respecrive polygons' indices are returned, in the form of [(this_pol_i, this_side_i), (that_pol_i, that_side_i)]. 
 
@@ -98,7 +98,7 @@ The instance's default bounding box will be a rectangle, the size of the image, 
 
 > **Rotaboxer** Visual editor.
 >  An easy way to define the *custom_bounds* of Rotabox. 
->  To use it, run *rotaboxer.py* directly. It can be found at the repository root.
+>  To use it, run *rotaboxer.py* directly. It can be found in the *Visual Editor* folder, at the repository.
 >  Open a *.png* image or an *.atlas* file in the editor, draw bounds for it and export the resulting code to clipboard, to use in a Rotabox widget.
 > 
 > ![editor](images/editor.png)
@@ -185,13 +185,6 @@ Most of it is familiar from the Scatter widget.
 
 ## Utility interface
 
-**scale** *AliasProperty* 
- Current widget's scale, based on widget's original size (User's initial *size* input or *image*'s *texture_size* ).
- 
-**scale_min** *NumericProperty* (0.01)
-**scale_max** *NumericProperty* (1e20)
- Optional scale restrictions.
-
 **pivot** *ReferenceListProperty*
  The point of rotation and scaling.
  While *origin* property sets *pivot*'s position, relatively to widget's *size* and *pos*, *pivot* itself can be used to position the widget, much like *pos* or *center*.
@@ -199,6 +192,11 @@ Most of it is familiar from the Scatter widget.
 **ready** *BooleanProperty* (False)
  Useful to read in cases where the widget is stationary. 
  Signifies the completion of the widget's initial preparations.
+ Also, its state changes to True after every size change or reset.
+ 
+**prepared** *BooleanProperty* (False)
+ Its state change signifies a reset.
+ The reset completion signal, however, is the consequent [ready] state change to True.
  
 **get_point(pol_index, point_index)** *Method*
  Returns the current position of a certain point.
@@ -207,8 +205,15 @@ Most of it is familiar from the Scatter widget.
 **draw_bounds** *BooleanProperty* (False)
  This option could be useful during testing, as it makes the widget's bounds visible.  
 
+**scale** *AliasProperty* 
+ Current widget's scale, based on widget's original size (User's initial *size* input or *image*'s *texture_size* ).
+ 
+**scale_min** *NumericProperty* (0.01)
+**scale_max** *NumericProperty* (1e20)
+ Optional scale restrictions.
+ 
 _______
 > **Note:** *Rotabox* is being developed in Windows and hasn't really been tested on a mobile platform.
 
-*python 2.7.13 - kivy 1.10.0 - unjuan 2018*
+*version 0.11.0 - python 2.7.13 - kivy 1.10.0 - unjuan 2018*
 

@@ -1,6 +1,6 @@
 
 
-Rotabox 0.10.1 changes
+Rotabox 0.11.0 changes
 =====================
     	Changes
 	----------
@@ -16,13 +16,13 @@ Rotabox 0.10.1 changes
 		----------
 		    File selectors now working properly with kivy 1.10.
 
-		    An .atlas file can also be used as a single image source.
-
 		Added
 		--------
 		    A switch to unlock/lock polygons' exporting order. Before, the order changed everytime a polygon was selected.
 
-		    A switch to determine whether an .atlas file is an animation or not.
+		    An option, when dealing with an .atlas file, to export a single frame as a list or the whole as a dictionary (animated bounds).
+		    
+		    Ability to see and export open bounds.
 
 
 Rotabox 0.10.0 changes
