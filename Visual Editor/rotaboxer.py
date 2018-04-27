@@ -166,17 +166,17 @@ class Point(ToggleButton):
     def on_press(self, *args):
         self.state = 'down'
         if (self.root.index != self.pol['btn_points'].index(self)
-                or self.root.pol != self.pol['idx']):
-            self.root.pol = str(self.pol['idx'])
+                or self.root.pol != self.pol['key']):
+            self.root.pol = str(self.pol['key'])
             self.root.index = self.pol['btn_points'].index(self)
             self.root.save_state(switch=1)
             if self.root.to_transfer:
                 return
-            if not self.root.ordered:  # TODO
+            if not self.root.ordered:
                 for pol in self.root.rec[self.root.frame].itervalues():
-                    if pol['exp'] > self.pol['exp']:
-                        pol['exp'] -= 1
-                self.pol['exp'] = len(self.root.rec[self.root.frame]) - 1
+                    if pol['number'] > self.pol['number']:
+                        pol['number'] -= 1
+                self.pol['number'] = len(self.root.rec[self.root.frame]) - 1
 
     def on_touch_move(self, touch):
         if self.state != 'down':
@@ -201,7 +201,7 @@ class Point(ToggleButton):
             self.opacity = 1
             self.root.save_state(msg=str(self.pol['btn_points'].index(self))
                                  + '_'
-                                 + str(self.pol['idx'])
+                                 + str(self.pol['key'])
                                  + '_'
                                  + str((round(self.center_x),
                                         round(self.center_y))),
@@ -354,7 +354,7 @@ class Editor(FloatLayout):
             self.pol = str(len(frame))
             pol = frame[self.pol] = {}
 
-            pol['exp'] = pol['idx'] = int(self.pol)
+            pol['number'] = pol['key'] = int(self.pol)
             pol['open'] = False
             pol['btn_points'] = [Point(pol, self, self.mag, pos=(x, y),
                                        text=str(0))]
@@ -418,15 +418,15 @@ class Editor(FloatLayout):
 
         p = len(frame) - 1
         for k, v in frame.iteritems():
-            if v['exp'] > pol['exp']:
-                v['exp'] -= 1
+            if v['number'] > pol['number']:
+                v['number'] -= 1
             elif v == pol:
                 p = int(k)
-        pol['exp'] = len(frame) - 1
+        pol['number'] = len(frame) - 1
 
         while p < len(frame) - 1:
             frame[str(p)] = frame[str(p + 1)]
-            frame[str(p)]['idx'] = p
+            frame[str(p)]['key'] = p
             frame[str(p)]['label'].text = str(p)
             p += 1
 
@@ -506,8 +506,8 @@ class Editor(FloatLayout):
 
                     if not xpol['btn_points']:
                         for apol in frame.itervalues():
-                            if apol['exp'] > xpol['exp']:
-                                apol['exp'] -= 1
+                            if apol['number'] > xpol['number']:
+                                apol['number'] -= 1
                         self.scat.remove_widget(xpol['label'])
                         self.remove_gap(xpol)
 
@@ -516,7 +516,7 @@ class Editor(FloatLayout):
                 cutpoint.pol['btn_points'].insert(i, cutpoint)
                 i += 1
 
-            self.pol = str(point.pol['idx'])
+            self.pol = str(point.pol['key'])
             curpoint = frame[self.pol]['btn_points'][self.index]
             curpoint.area_color = curpoint.norm_fill_color
             curpoint.line_color = curpoint.norm_line_color
@@ -529,7 +529,7 @@ class Editor(FloatLayout):
             self.pol = str(len(frame))
             pol = frame[self.pol] = {}
 
-            pol['exp'] = pol['idx'] = int(self.pol)
+            pol['number'] = pol['key'] = int(self.pol)
             pol['open'] = False
             pol['btn_points'] = []
             pol['color'] = self.default_color
@@ -551,15 +551,15 @@ class Editor(FloatLayout):
 
                     if not xpol['btn_points']:
                         for apol in frame.itervalues():
-                            if apol['exp'] > xpol['exp']:
-                                apol['exp'] -= 1
+                            if apol['number'] > xpol['number']:
+                                apol['number'] -= 1
                         self.scat.remove_widget(xpol['label'])
                         self.remove_gap(xpol)
             i = 0
             for cutpoint in ordered:
                 pol['btn_points'].insert(i, cutpoint)
                 i += 1
-            self.pol = str(pol['idx'])
+            self.pol = str(pol['key'])
             self.index = i - 1
             pol['btn_points'][self.index].state = 'down'
             msg = 'New polygon ({}) of {} points'.format(self.pol, len(ordered))
@@ -694,8 +694,8 @@ class Editor(FloatLayout):
                         v2['btn_points'].append(Point(v2, self, self.mag,
                                                       text=str(i),
                                                       pos=point.center))
-                    v2['idx'] = v['idx']
-                    v2['exp'] = v['exp']
+                    v2['key'] = v['key']
+                    v2['number'] = v['number']
                     v2['open'] = v['open']
                     v2['color'] = v['color'][:]
                     v2['label'] = Label(size=(50, 50), font_size='35sp',
@@ -887,8 +887,8 @@ class Editor(FloatLayout):
             self.rec[f] = {}
             for p, pol in sframe.iteritems():
                 self.rec[f][p] = {}
-                self.rec[f][p]['idx'] = pol['idx']
-                self.rec[f][p]['exp'] = pol['exp']
+                self.rec[f][p]['key'] = pol['key']
+                self.rec[f][p]['number'] = pol['number']
                 try:
                     self.rec[f][p]['open'] = pol['open']
                 except Exception:
@@ -1030,7 +1030,7 @@ class Editor(FloatLayout):
         i = 0
         while i < len(frame):
             for pol in frame.itervalues():
-                if pol['exp'] == i:
+                if pol['number'] == i:
                     pols.append(pol)
                     break
             i += 1
@@ -1061,7 +1061,7 @@ class Editor(FloatLayout):
             if not pol['points']:
                 continue
             if pol['open']:
-                opens.append(pol['exp'])
+                opens.append(pol['number'])
             self.code += '['
             i_3 = 0
             for i, point in enumerate(pol['points']):
@@ -1086,8 +1086,8 @@ class Editor(FloatLayout):
             project[f] = {}
             for p, pol in frame.iteritems():
                 project[f][p] = {}
-                project[f][p]['idx'] = pol['idx']
-                project[f][p]['exp'] = pol['exp']
+                project[f][p]['key'] = pol['key']
+                project[f][p]['number'] = pol['number']
                 try:
                     project[f][p]['open'] = pol['open']
                 except Exception:
@@ -1391,9 +1391,9 @@ class Editor(FloatLayout):
                             (int(self.pol) - 1) % len(self.rec[self.frame]))
                         pol = self.rec[self.frame][self.pol]
                         for apol in self.rec[self.frame].itervalues():
-                            if apol['exp'] > pol['exp']:
-                                apol['exp'] -= 1
-                        pol['exp'] = len(self.rec[self.frame]) - 1
+                            if apol['number'] > pol['number']:
+                                apol['number'] -= 1
+                        pol['number'] = len(self.rec[self.frame]) - 1
                         self.index = -1
                     pol['btn_points'][self.index].on_press()
                     pol['btn_points'][self.index].on_release()
@@ -1501,7 +1501,7 @@ class Editor(FloatLayout):
                     label.height = ph * .33
                     label.font_size = '{}sp'.format(round(diag * .3))
                     label.color = pol['color'][:-1] + [.3]
-                    label.text = str(pol['idx'])
+                    label.text = str(pol['key'])
                     label.opacity = 1
             else:
                 for pol in frame.itervalues():
@@ -1511,7 +1511,7 @@ class Editor(FloatLayout):
             pols = [None] * len(frame)
             c = 0
             while c < len(frame):
-                pols[frame[str(c)]['exp']] = c
+                pols[frame[str(c)]['number']] = c
                 c += 1
             self.board4.text = "Polygons' export order:\n" + str(pols)
         else:
