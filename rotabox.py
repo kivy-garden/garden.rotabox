@@ -291,7 +291,7 @@ from math import radians, atan2, sin, cos
 from itertools import izip
 
 __author__ = 'unjuan'
-__version__ = '0.11.0'
+__version__ = '0.11.1'
 
 __all__ = 'Rotabox'
 
@@ -512,7 +512,8 @@ class Rotabox(Widget):
                   aspect_ratio=self.on_reset,
                   custom_bounds=self.on_reset,
                   hidden_bounds=self.on_reset,
-                  allow_rotabox=self.on_reset)
+                  allow_rotabox=self.on_reset,
+                  draw_bounds=self.on_reset)
 
     def add_widget(self, widget, **kwargs):
         '''Birth control.'''
@@ -528,8 +529,8 @@ class Rotabox(Widget):
 
     def on_reset(self, *args):
         '''Enables bounds reset.'''
-        self.prepared = False
         self.ready = False
+        self.prepared = False  # This needs to be second
         self.trigger_update()
 
     def prepare(self):
@@ -665,14 +666,12 @@ class Rotabox(Widget):
 
         if self.allow_rotabox:
             # Updating custom bounds
-            if self.frames:
+            if self.frames:  # An identically keyed atlas file is assumed here.
                 if self.segment_mode:
-                    # An identically keyed atlas file is assumed here.
                     curr_key = self.image.source.split('/')[-1]
                     self.groups = self.frames[curr_key]
                     self.curr_key = curr_key
                 else:
-                    # An identically keyed atlas file is assumed here.
                     self.groups = self.frames[self.image.source.split('/')[-1]]
                 motion = True
             if angle or motion:
@@ -691,115 +690,6 @@ class Rotabox(Widget):
         # ------------------------- ON RESET & INITIALLY
         self.prepare()
         self.prepared = True
-
-    def set_draw(self):
-        self.canvas.after.add(self.draw_color)
-        if self.frames:
-            pols = max(
-                [len(frame) for frame in self.custom_bounds.itervalues()])
-            if self.segment_mode:
-                sides = max(
-                    [len(pol) for frame in self.custom_bounds.itervalues() for
-                     pol in frame])
-        else:
-            pols = len(self.custom_bounds)
-            if self.segment_mode:
-                sides = len(self.groups)
-        if self.segment_mode:
-            if self.open_bounds:
-                self.draw_lines += tuple(
-                    Line(close=True, dash_offset=3, dash_length=5) for _ in
-                    xrange(sides))
-            else:
-                self.draw_lines += tuple(
-                    Line(dash_offset=3, dash_length=5) for _ in xrange(pols))
-
-            if self.hidden_bounds:
-                self.draw_hiddlines += tuple(
-                    Line(close=True, dash_offset=3, dash_length=1) for _ in
-                    xrange(sides))
-            self.box_lines += tuple(
-                Line(close=True, dash_offset=3, dash_length=5) for _ in
-                xrange(sides))
-        else:
-            self.draw_lines += tuple(
-                Line(close=True, dash_offset=3, dash_length=5) for _ in
-                xrange(pols))
-            self.box_lines += tuple(
-                Line(close=True, dash_offset=3, dash_length=5) for _ in
-                xrange(pols))
-        for line in self.draw_lines:
-            self.canvas.after.add(line)
-        for hline in self.draw_hiddlines:
-            self.canvas.after.add(hline)
-        for line in self.box_lines:
-            self.canvas.after.add(line)
-
-        # Securing draw on a stationary widget.
-        self.x += .001
-
-    def draw(self):
-        '''
-        If [draw_bounds] is True, visualises the widget's bounds.
-        For testing.
-        '''
-        try:
-            if self.segment_mode:
-                if self.open_bounds:
-                    for i, side in enumerate(self.groups):
-                        if side.id[0] not in self.hidden_bounds:
-                            self.draw_lines[i].points = [n for point
-                                                         in side.points
-                                                         for n in point]
-                        else:
-                            self.draw_hiddlines[i].points = [n for point
-                                                             in side.points
-                                                             for n in point]
-                else:
-                    pols_lens = self.records[self.curr_key]['pols_lens']
-                    length = 0
-                    for i, leng in enumerate(pols_lens):
-                        if i not in self.hidden_bounds:
-                            self.draw_lines[i].points = [n
-                                                         for j in xrange(length,
-                                                                         length
-                                                                         + leng)
-                                                         for point
-                                                         in self.groups[j].points
-                                                         for n in point]
-                        else:
-                            self.draw_hiddlines[i].points = [n
-                                                     for j in xrange(length,
-                                                                     length
-                                                                     + leng)
-                                                     for point
-                                                     in self.groups[j].points
-                                                     for n in point]
-                        length += leng
-
-                # for i in xrange(len(self.groups)):
-                #     box = self.groups[i].bbox
-                #     self.box_lines[i].points = [box[0], box[1],
-                #                                 box[2], box[1],
-                #                                 box[2], box[3],
-                #                                 box[0], box[3]]
-            else:
-                for i in xrange(len(self.groups)):
-                    self.draw_lines[i].points = [n for point
-                                                 in self.groups[i].points
-                                                 for n in point]
-                    # box = self.polygons[i].bbox
-                    # self.box_lines[i].points = [box[0], box[1],
-                    #                             box[2], box[1],
-                    #                             box[2], box[3],
-                    #                             box[0], box[3]]
-            # box = self.bbox
-            # self.box_lines[0].points = (box[0], box[1],
-            #                         box[2], box[1],
-            #                         box[2], box[3],
-            #                         box[0], box[3])
-        except (IndexError, KeyError):
-            pass
 
     # ------------------------------------------------------ BOUNDS & COLLISION
     def define_sides(self):
@@ -1234,6 +1124,116 @@ class Rotabox(Widget):
     # and position. [origin] sets and changes it.
     pivot_bond = ListProperty([.5, .5])
 
+    def set_draw(self):
+        '''Setting up canvas for test drawing the bounds.'''
+        self.canvas.after.add(self.draw_color)
+        if self.frames:
+            pols = max(
+                [len(frame) for frame in self.custom_bounds.itervalues()])
+            if self.segment_mode:
+                sides = max(
+                    [len(pol) for frame in self.custom_bounds.itervalues() for
+                     pol in frame])
+        else:
+            pols = len(self.custom_bounds)
+            if self.segment_mode:
+                sides = len(self.groups)
+        if self.segment_mode:
+            if self.open_bounds:
+                self.draw_lines += tuple(
+                    Line(close=True, dash_offset=3, dash_length=5) for _ in
+                    xrange(sides))
+            else:
+                self.draw_lines += tuple(
+                    Line(dash_offset=3, dash_length=5) for _ in xrange(pols))
+
+            if self.hidden_bounds:
+                self.draw_hiddlines += tuple(
+                    Line(close=True, dash_offset=3, dash_length=1) for _ in
+                    xrange(sides))
+            self.box_lines += tuple(
+                Line(close=True, dash_offset=3, dash_length=5) for _ in
+                xrange(sides))
+        else:
+            self.draw_lines += tuple(
+                Line(close=True, dash_offset=3, dash_length=5) for _ in
+                xrange(pols))
+            self.box_lines += tuple(
+                Line(close=True, dash_offset=3, dash_length=5) for _ in
+                xrange(pols))
+        for line in self.draw_lines:
+            self.canvas.after.add(line)
+        for hline in self.draw_hiddlines:
+            self.canvas.after.add(hline)
+        for line in self.box_lines:
+            self.canvas.after.add(line)
+
+        # Securing draw on a stationary widget.
+        self.x += .001
+
+    def draw(self):
+        '''
+        If [draw_bounds] is True, visualises the widget's bounds.
+        For testing.
+        '''
+        try:
+            if self.segment_mode:
+                if self.open_bounds:
+                    for i, side in enumerate(self.groups):
+                        if side.id[0] not in self.hidden_bounds:
+                            self.draw_lines[i].points = [n for point
+                                                         in side.points
+                                                         for n in point]
+                        else:
+                            self.draw_hiddlines[i].points = [n for point
+                                                             in side.points
+                                                             for n in point]
+                else:
+                    pols_lens = self.records[self.curr_key]['pols_lens']
+                    length = 0
+                    for i, leng in enumerate(pols_lens):
+                        if i not in self.hidden_bounds:
+                            self.draw_lines[i].points = [n
+                                                         for j in xrange(length,
+                                                                         length
+                                                                         + leng)
+                                                         for point
+                                                         in self.groups[j].points
+                                                         for n in point]
+                        else:
+                            self.draw_hiddlines[i].points = [n
+                                                     for j in xrange(length,
+                                                                     length
+                                                                     + leng)
+                                                     for point
+                                                     in self.groups[j].points
+                                                     for n in point]
+                        length += leng
+
+                # for i in xrange(len(self.groups)):
+                #     box = self.groups[i].bbox
+                #     self.box_lines[i].points = [box[0], box[1],
+                #                                 box[2], box[1],
+                #                                 box[2], box[3],
+                #                                 box[0], box[3]]
+            else:
+                for i in xrange(len(self.groups)):
+                    self.draw_lines[i].points = [n for point
+                                                 in self.groups[i].points
+                                                 for n in point]
+                    # box = self.polygons[i].bbox
+                    # self.box_lines[i].points = [box[0], box[1],
+                    #                             box[2], box[1],
+                    #                             box[2], box[3],
+                    #                             box[0], box[3]]
+            # box = self.bbox
+            # self.box_lines[0].points = (box[0], box[1],
+            #                         box[2], box[1],
+            #                         box[2], box[3],
+            #                         box[0], box[3])
+        except (IndexError, KeyError):
+            pass
+
 
 # -------------------------------- SEGMENT INTERSECTION DETECTION
 def make_sides(frame, opens=None):
@@ -1368,7 +1368,7 @@ def make_polygons(frame):
 def move_polygons(angle, pol, pos):
     '''Translating polygons by updating their [rel_pts] list.'''
     pol.points = pol.rel_pts = [[x + y for x, y in izip(point, pos)]
-                   for point in pol.ref_pts]
+                                for point in pol.ref_pts]
 
 
 def rotate_polygons(origin, angle, pol):
@@ -1519,6 +1519,7 @@ if __name__ == '__main__':
             [[(0.018, 0.335), (0.212, 0.042), (0.217, 0.408),
             (0.48, -0.004), (0.988, 0.758), (0.458, 0.665), (0.26, 0.988),
             (0.268, 0.585), (0.02, 0.977)]]
+        # draw_bounds: True
         Image:
             source: 'examples/kivy.png'
             color: .5, .5, 0, 1
