@@ -1,0 +1,571 @@
+# version 0.11.0 - kivy 1.10.0 - python 2.7.13
+#:import platform kivy.app.platform
+#:import os os
+
+<Point>:
+    label: label
+    size_hint: None, None
+    background_normal: 'rotaboxer/dot.png'
+    background_down: 'rotaboxer/dot.png'
+    color: 1, 1, 1, 0
+    group: 'points'
+    area_color: .5, 0, 0, 0
+    line_color: .3, .3, .3, .5
+    canvas:
+        Color:
+            rgba: self.area_color
+        Rectangle:
+            size: self.size
+            pos: self.pos
+        Color:
+            rgba: self.line_color
+        Line:
+            rectangle: self.x, self.y, self.width, self.height
+    Label:
+        id: label
+        size_hint: None, None
+        color: 1, 1, 1, 1
+        size: root.size
+        pos: root.center
+        text: root.text
+
+<Editor>:
+    sprite: sprite
+    board1: board1
+    board2: board2
+    board3: board3
+    board4: board4
+    shortcuts: shortcuts
+    key_lbl: key_lbl
+    mask: mask
+    load_btn: load_btn
+    save: save
+    save_btn: save_btn
+    num_area: num_area
+    num_box: num_box
+    num_btn: num_btn
+    help_btn: help_btn
+    undo: undo
+    redo: redo
+    prev: prev
+    next: next
+    minus: minus
+    plus: plus
+    cancel_btn: cancel_btn
+    index_btn: index_btn
+    blue_btn: blue_btn
+    red_btn: red_btn
+    green_btn: green_btn
+    yellow_btn: yellow_btn
+    magenta_btn: magenta_btn
+    cyan_btn: cyan_btn
+    rem_btn: rem_btn
+    clear_pol: clear_pol
+    open_btn: open_btn
+    copy_btn: copy_btn
+    scat: scat
+    grid: grid
+    FloatLayout:
+        id: grid
+        size_hint: .8, .98
+        x: 156
+        pos_hint: {'top': .99}
+        opacity: 0
+        canvas.before:
+            Rectangle:
+                pos: self.pos
+                size: self.size
+                texture: app.texture
+    ScattBack:
+        id: scat
+        do_rotation:False
+        Sprite:
+            id: sprite
+            editor: root
+            opacity: 0
+            canvas.after:
+                Color:
+                    rgba: .3, .15, .3, 1
+                Line:
+                    rectangle: self.x,self.y,self.width,self.height
+                    dash_offset: 5
+                    dash_length: 3
+    FloatLayout:
+        size_hint: .8, .98
+        x: 156
+        pos_hint: {'top': .99}
+        BoxLayout:
+            size_hint: .99, None
+            height: 50
+            pos_hint: {'x': .01, 'top': 1}
+            Label:
+                id: board2
+                background_color: .9, 1, .9, .05
+                color: 1, 1, 1, .6
+                text_size: self.width, None
+                height: self.texture_size[1]
+                halign: 'center'
+                text: 'Open an image file or a previous project...'
+        BoxLayout:
+            size_hint: 1, None
+            height: 50
+            pos_hint: {'x': .01, 'y': .02}
+            Label:
+                id: board3
+                size_hint: 1.5, None
+                text_size: self.width, None
+                height: self.texture_size[1]
+                markup: True
+                text: ''
+            BoxLayout:
+                orientation: 'vertical'
+                Widget:
+                    size_hint: 1, .5
+                Label:
+                    id: board4
+                    pos_hint: {'right': .97, 'y': .01}
+                    color: 1, 1, 1, .55
+                    text_size: self.width, None
+                    height: self.texture_size[1]
+                    halign: 'right'
+                    text: ''
+    RelativeLayout:
+        id: mask
+        canvas:
+            Color:
+                rgba: 0, 0, 0, .8
+            Rectangle:
+                pos: self.x + 15, self.y
+                size: self.size
+        opacity: 0
+    BoxLayout:
+        size_hint: None, None
+        size: 148, 590
+        x: 5
+        top: root.height - 5
+        orientation: 'vertical'
+        Button:
+            id: load_btn
+            group: 'utils'
+            background_color: .13, .13, .2, 1
+            text: 'Open'
+            on_release: root.load_dialog()
+        Widget:
+            size_hint: 1, .05
+        Label:
+            id: board1
+            background_color: .9, 1, .9, .05
+            color: 1, 1, 1, .6
+            halign: 'center'
+            text: ''
+        Widget:
+            size_hint: 1, .05
+        BoxLayout:
+            Button:
+                id: prev
+                group: 'nav'
+                background_color: .13, .13, .2, 1
+                font_name: 'rotaboxer/guifont'
+                font_size: '20sp'
+                text: 'e'
+                on_release: root.navigate('<')
+                disabled: True
+            Widget:
+                size_hint: .005, 1
+            Button:
+                id: next
+                group: 'nav'
+                background_color: .13, .13, .2, 1
+                font_name: 'rotaboxer/guifont'
+                font_size: '20sp'
+                text: 'r'
+                on_release: root.navigate('>')
+                disabled: True
+        Widget:
+            size_hint: 1, .05
+        Button:
+            id: rem_btn
+            group: 'edit'
+            background_color: .13, .13, .2, 1
+            text: 'Delete point'
+            on_release: root.remove_point()
+            disabled: True
+        Widget:
+            size_hint: 1, .05
+        Button:
+            id: clear_pol
+            group: 'edit'
+            background_color: .13, .13, .2, 1
+            text: 'Delete polygon'
+            on_release: root.remove_polygon()
+            disabled: True
+        Widget:
+            size_hint: 1, .05
+        Button:
+            id: open_btn
+            group: 'edit'
+            background_color: .13, .13, .2, 1
+            text: 'Open polygon'
+            on_release: root.open_polygon()
+            disabled: True
+        Widget:
+            size_hint: 1, .05
+        Button:
+            id: cancel_btn
+            group: 'edit'
+            background_color: .13, .13, .2, 1
+            text: 'Cancel transfer'
+            on_release:
+                if root.to_transfer: root.save_state(
+                'Picked points {}'.format(
+                root.to_transfer)); root.empty_cut(); root.save_state(
+                'Cancelled transfer')
+            disabled: True
+        Widget:
+            size_hint: 1, .05
+        BoxLayout:
+            Button:
+                id: undo
+                group: 'edit'
+                background_color: .13, .13, .2, 1
+                font_name: 'rotaboxer/guifont'
+                font_size: '22sp'
+                text: 'q'
+                on_release: root.change_state('undo')
+                disabled: True
+            Widget:
+                size_hint: .005, 1
+            Button:
+                id: redo
+                group: 'edit'
+                background_color: .13, .13, .2, 1
+                font_name: 'rotaboxer/guifont'
+                font_size: '22sp'
+                text: 'w'
+                on_release: root.change_state('redo')
+                disabled: True
+        Widget:
+            size_hint: 1, .05
+        ToggleButton:
+            id: index_btn
+            group: 'edit'
+            text: 'Order polygons' if self.state == 'normal' else 'Lock order'
+            norm_color: .13, .13, .2, 1
+            down_color: 1, .1, .1, 1
+            background_color: self.norm_color if self.state == 'normal' else self.down_color
+            on_state: root.unlock_order(self.state)
+            disabled: True
+        Widget:
+            size_hint: 1, .05
+        BoxLayout:
+            size_hint: 1, .3
+            padding: 1.5, 0, 1.5, 0
+            spacing: 3
+            Button:
+                id: blue_btn
+                group: 'visual'
+                original_color: 0.29, 0.518, 1.0, 1
+                background_color: 0.29, 0.518, 1.0, 1
+                on_release: root.set_color(self.original_color)
+                disabled: True
+            Button:
+                id: red_btn
+                group: 'visual'
+                original_color: 1.0, 0.29, 0.29, 1
+                background_color: 1.0, 0.29, 0.29, 1
+                on_release: root.set_color(self.original_color)
+                disabled: True
+            Button:
+                id: green_btn
+                group: 'visual'
+                original_color: 0.29, 1.0, 0.29, 1
+                background_color: 0.29, 1.0, 0.29, 1
+                on_release: root.set_color(self.original_color)
+                disabled: True
+            Button:
+                id: yellow_btn
+                group: 'visual'
+                original_color: 1.0, 1.0, 0.29, 1
+                background_color: 1.0, 1.0, 0.29, 1
+                on_release: root.set_color(self.original_color)
+                disabled: True
+            Button:
+                id: magenta_btn
+                group: 'visual'
+                original_color: 1.0, 0.29, 1.0, 1
+                background_color: 1.0, 0.29, 1.0, 1
+                on_release: root.set_color(self.original_color)
+                disabled: True
+            Button:
+                id: cyan_btn
+                group: 'visual'
+                original_color: 0.29, 1.0, 1.0, 1
+                background_color: 0.29, 1.0, 1.0, 1
+                on_release: root.set_color(self.original_color)
+                disabled: True
+        RelativeLayout:
+            id: num_area
+            Button:
+                id: num_btn
+                background_color: 0, 0, 0, 1
+                text: '     Numbers'
+            CheckBox:
+                id: num_box
+                size_hint_x: 1.7
+                group: 'visual'
+                pos_hint: {'center_x': .15, 'center_y': .5}
+                on_active:
+                    if self.active: root.nums_on = True
+                    else: root.nums_on = False
+                active: True
+        BoxLayout:
+            Button:
+                id: minus
+                group: 'utils'
+                background_color: .13, .13, .2, 1
+                font_name: 'rotaboxer/guifont'
+                text: 's'
+                on_release: root.zoom('out')
+                disabled: True
+            Widget:
+                size_hint: .005, 1
+            Button:
+                id: plus
+                group: 'utils'
+                background_color: .13, .13, .2, 1
+                font_name: 'rotaboxer/guifont'
+                font_size: '25sp'
+                text: 's'
+                on_release: root.zoom('in')
+                disabled: True
+        Widget:
+            size_hint: 1, .05
+        Button:
+            id: copy_btn
+            group: 'utils'
+            text: 'Export bounds'
+            background_color: .13, .13, .2, 1
+            on_release: root.check_out()
+            disabled: True
+        Widget:
+            size_hint: 1, .05
+        RelativeLayout:
+            id: save
+            Button:
+                id: save_btn
+                group: 'utils'
+                background_color: .13, .13, .2, 1
+                text: 'Save as        '
+                on_release:
+                    if chk_box.active: root.save_proj()
+                    else: root.save_dialog()
+                disabled: True
+            CheckBox:
+                id: chk_box
+                size_hint_x: .3
+                group: 'utils'
+                pos_hint: {'center_x': .8, 'center_y': .5}
+                on_active:
+                    if self.active: save_btn.text = 'Save      '
+                    else: save_btn.text = 'Save as        '
+        Widget:
+            size_hint: 1, .05
+        Button:
+            id: help_btn
+            group: 'utils'
+            background_color: .13, .13, .2, 1
+            text: 'Help'
+            on_release: root.select_help()
+    BoxLayout:
+        id: shortcuts
+        size_hint: None, None
+        size: 665, 600
+        top: root.height
+        x: 140
+        opacity: 0
+        BoxLayout:
+            orientation: 'vertical'
+            KeyLabel:
+                text: ': [size=19][color=#ffffff][Ctrl+O][/color][/size]'
+            KeyLabel:
+                text: ''
+            KeyLabel:
+                text: ': [size=19][color=#ffffff][<][/color][/size] / [size=19][color=#ffffff][>][/color][/size].  [size=19][color=#ffffff][Alt +][/color][/size] Clone to next frame'
+            KeyLabel:
+                text: ': [size=19][color=#ffffff][Del][/color][/size]'
+            KeyLabel:
+                text: ': [size=19][color=#ffffff][Ctrl + Del][/color][/size] or [size=19][color=#ffffff][Shft + Del][/color][/size]'
+            KeyLabel:
+                text: ': [size=19][color=#ffffff][O][/color]'
+            KeyLabel:
+                text: ': [size=19][color=#ffffff][Esc][/color]'
+            KeyLabel:
+                text: ': [size=19][color=#ffffff][Ctrl + Z][/color][/size] / [size=19][color=#ffffff][Ctrl + Shft + Z][/color][/size]'
+            KeyLabel:
+                text: ': [size=19][color=#ffffff][R][/color][/size]'
+            KeyLabel:
+                size_hint_y: .15
+                text: ': [size=19][color=#ffffff][1 - 6][/color][/size]'
+            KeyLabel:
+                text: ': [size=19][color=#ffffff][N][/color][/size]'
+            KeyLabel:
+                text: ': [size=19][color=#ffffff][-][/color][/size] / [size=19][color=#ffffff][+][/color][/size]'
+            KeyLabel:
+                text: ': [size=19][color=#ffffff][E][/color][/size]. In resulting dialog [size=19][color=#ffffff][P][/color][/size] / [size=19][color=#ffffff][V][/color][/size]'
+            KeyLabel:
+                text: ': [size=19][color=#ffffff][S][/color][/size].  [size=19][color=#ffffff][Ctrl + S][/color][/size] Skip dialog.'
+            KeyLabel:
+                text: ': [size=19][color=#ffffff][F1][/color][/size]. In resulting dialog [size=19][color=#ffffff][H][/color][/size] / [size=19][color=#ffffff][K][/color][/size]'
+        BoxLayout:
+            orientation: 'vertical'
+            Label:
+                size_hint: 1, .2
+                font_size: 22
+                text: 'Keyboard Shortcuts'
+                text_size: 300, None
+                markup: True
+            KeyLabel:
+                id: key_lbl
+                halign: 'right'
+                line_height: 1.05
+                text: ''
+
+<KeyLabel@Label>:
+    font_size: 17
+    text_size: 300, None
+    color: 0.565, 0.565, 0.565
+    markup: True
+
+<Button>:
+    always_release: False
+
+<Popup>:
+    separator_color: 0, 0, 0, 1
+
+<DarkButton>:
+    background_color: .3, .3, .3, 1
+    group: 'drives'
+    size_hint_y: None
+    height: dp(25)
+
+<LoadDialog>:
+    drives_list: drives_list
+    filechooser: filechooser
+    orientation: 'vertical'
+    canvas.before:
+        Color:
+            rgba: 0, 0, 0, 1
+        Rectangle:
+            size: self.size
+            pos: self.pos
+    Label:
+        size_hint_y: None
+        height: dp(25)
+        text: filechooser.path
+        text_size: [self.width, None]
+        halign: 'center'
+        shorten: True
+    BoxLayout:
+        BoxLayout:
+            id: drives_list
+            orientation: 'vertical'
+        FileChooserListViewX:
+            id: filechooser
+            size_hint_x: 10
+            filters: root.file_types
+            path: './' if platform == 'win' else '/sdcard'
+    BoxLayout:
+        size_hint_y: None
+        height: dp(40)
+        Button:
+            id: cancel_btn
+            text: "Cancel"
+            background_color: .13, .13, .2, 1
+            on_release: root.cancel()
+        Button:
+            id: load_btn
+            text: "Open"
+            background_color: .13, .13, .2, 1
+            on_release: root.load(filechooser.path, filechooser.selection)
+
+<SaveDialog>:
+    text_input: text_input
+    drives_list: drives_list
+    filechooser: filechooser
+    w_ok: os.access(filechooser.path, os.W_OK)
+    orientation: 'vertical'
+    canvas.before:
+        Color:
+            rgba: 0, 0, 0, 1
+        Rectangle:
+            size: self.size
+            pos: self.pos
+    Label:
+        id: access
+        size_hint_y: None
+        height: dp(25)
+        text: "You can save in this folder" if root.w_ok else "You can not save in this folder"
+        color: (0, 1, 0, 1) if root.w_ok else (1, 0, 0, 1)
+        text_size: [self.width, None]
+        halign: 'center'
+    Label:
+        size_hint_y: None
+        height: dp(25)
+        text: filechooser.path
+        text_size: [self.width, None]
+        halign: 'center'
+        shorten: True
+    BoxLayout:
+        BoxLayout:
+            id: drives_list
+            size_hint_x: 1
+            orientation: 'vertical'
+        FileChooserListViewX:
+            id: filechooser
+            size_hint_x: 10
+            filters: root.file_types
+            path: './' if platform == 'win' else '/sdcard'
+            on_selection:
+                if self.selection: \
+                text_input.text = os.path.split(self.selection[0])[1]
+                else: text_input.text = ''
+    TextInput:
+        id: text_input
+        size_hint_y: None
+        height: dp(30)
+        multiline: False
+        text: app.root.filename
+        background_color: .7, .7, .7, 1
+    BoxLayout:
+        size_hint_y: None
+        height: dp(40)
+        Button:
+            id: cancel_btn
+            text: "Cancel"
+            background_color: .13, .13, .2, 1
+            on_release: root.cancel()
+        Button:
+            id: save_btn
+            text: "Save"
+            background_color: .13, .13, .2, 1
+            on_release: root.save(filechooser.path, text_input.text) if root.w_ok else None
+
+<ScrollLabel>
+    label: label
+    scroll_y: 0
+    canvas.before:
+        Color:
+            rgba: .009, .009, .01, 1
+        Rectangle:
+            size: self.size
+            pos: self.pos
+    Label:
+        id: label
+        text: root.text
+        text_size: root.width, None
+        size_hint_y: None
+        height: self.texture_size[1]
+        halign: 'left'
+        color: 0.565, 0.565, 0.565
+        on_size:
+            if root.height > self .texture_size[1]: self.height = root.height

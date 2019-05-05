@@ -1,8 +1,44 @@
 
 
-Rotabox 0.10.1 changes
-=====================
-    	Changes
+Rotabox 0.12.0 changes
+======================
+  	Changed
+	----------
+	    Major refactoring to accomodate Cython.
+	    Different balance between bounds calculation and collision detection.
+	    (The former, which was the major load, is twice as fast while the latter is slightly slower - an overall of about X1.5).
+
+	    [draw_bounds] is now a NumericProperty (0 for False, 1 for bounds only, 2 for bounds & bounding boxes).
+
+	Added
+	--------
+ 	    Cython option
+ 	    Rotabox tries by default to use a compiled cython module (cybounds.so or cybounds.pyd) for an about X5 speedup.
+ 	    User needs to compile it for specific operating systems using the provided cybounds.c file.
+
+	    [pre_check] BooleanProperty(False):
+ 	    A collision optimization switch for larger widgets in Cython.
+ 	    It's always considered True in Python but in Cython, for small widgets (under 45 points), the slight tax of the extra calculations outweighs any benefits in collision.
+
+ 	    [read_bounds] A method to define [custom_bounds] by reading a Rotaboxer project file (.bounds file), e.g. self.custom_bounds = self.read_ bounds("images/car.bounds").
+
+    Removed
+	-----------
+	    [hidden_bounds] were deemed an unnessesary complication in the recent refactoring, adding too much code for a mere application of a more general feature:
+	    The ability to treat specific collisions specifically using multiple polygons and Rotabox' collision feedback.
+		
+	Rotaboxer (bounds editor) changes:
+	==================================
+		Added
+		--------
+            Multiple points can be moved simultaneously with keyboard arrow keys.
+            Point multiselection (Ctrl+click) was already there since version 0.9 for transfering points between polygons.
+
+
+			
+Rotabox 0.11.0 changes
+======================
+    Changed
 	----------
 	    Some changes in documentation.
 
@@ -12,23 +48,24 @@ Rotabox 0.10.1 changes
 
 	Rotaboxer (bounds editor) changes:
 	==================================
-		Changes
+		Changed
 		----------
 		    File selectors now working properly with kivy 1.10.
-
-		    An .atlas file can also be used as a single image source.
 
 		Added
 		--------
 		    A switch to unlock/lock polygons' exporting order. Before, the order changed everytime a polygon was selected.
 
-		    A switch to determine whether an .atlas file is an animation or not.
+		    An option, when dealing with an .atlas file, to export a single frame as a list or the whole as a dictionary (animated bounds).
+		    
+		    Ability to see and export open bounds.
+
 
 
 Rotabox 0.10.0 changes
-=====================	
+======================	
 	
-	Changes
+	Changed
 	----------	
 	    Two new collision detection methods, the default being similar in performance to the original one, which is now discontinued.
 		
@@ -47,7 +84,7 @@ Rotabox 0.10.0 changes
 	Rotaboxer (bounds editor) changes:
 	==================================
 
-		Changes
+		Changed
 		----------
 		    Selecting a polygon, places it last, in the resulting list of polygons.
 		    This way, when editing is done, one can determine the order of polygons in the resulting "custom_bounds" by click-selecting them, one after the other, in the required order.
@@ -64,9 +101,7 @@ Rotabox 0.10.0 changes
 		
 		    Automatic checkpoint allocation removed. No checking strategy needed anymore.
 		
-		    Test painting of collidable areasremoved. No checking strategy needed anymore.
-
-
+		    Test painting of collidable areas removed. No checking strategy needed anymore.
 
 
 
@@ -96,27 +131,18 @@ Rotabox 0.9.0 changes
 	Rotaboxer (bounds editor) changes:
 	==================================
 	
-	        Added
-	        -----
-	            ** Selecting a polygon, places it first, in the resulting list of polygons.
-	                This way, when editing is done, one can determine the order of polygons in the resulting "custom_bounds" by click-selecting them, one after the other, in an order, opposite of the required.
-	
-	            ** Real-time checkpoint inspection added.
-	                Promoting points to checkpoints in a polygon requires some understanding of the Rotabox collision detection concept and can be tricky or even impossible without adding extra points or breaking the polygon into simpler shapes, depending on the shape.
-	
-	            ** Automatic checkpoint allocation when "Checkpoint" button is checked. Experimental. Always paint-test the bounds after any checkpoint setup.
-	
-	            ** Transfering points from a polygon to another, added.
-	                Not a positional transfer but a change in linkage. Useful when breaking a polygon is required.
-	
-	            ** Showing points and polygons indices.
+		Added
+		-----
+			** Selecting a polygon, places it first, in the resulting list of polygons.
+				This way, when editing is done, one can determine the order of polygons in the resulting "custom_bounds" by click-selecting them, one after the other, in an order, opposite of the required.
 
+			** Real-time checkpoint inspection added.
+				Promoting points to checkpoints in a polygon requires some understanding of the Rotabox collision detection concept and can be tricky or even impossible without adding extra points or breaking the polygon into simpler shapes, depending on the shape.
 
+			** Automatic checkpoint allocation when "Checkpoint" button is checked. Experimental. Always paint-test the bounds after any checkpoint setup.
 
-Versions 0.9 and 0.10
-=====================
-	Rotabox went through a major change, during version 0.9, that led to a version split.
-	Two new collision detection approaches, easier by far for the user, rendered the previous method obsolete.
-	So, while version 0.9 adds features to the earlier version, it's the last of its line.
-	It can be found in the *Rotabox0.9.legacy* folder.
-	Version 0.10, carrying the new methods, will continue to be updated.
+			** Transfering points from a polygon to another, added.
+				Not a positional transfer but a change in linkage. Useful when breaking a polygon is required.
+
+			** Showing points and polygons indices.
+

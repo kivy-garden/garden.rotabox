@@ -14,31 +14,27 @@ sys.path.append(os.path.abspath(".."))
 from rotabox import Rotabox
 
 Builder.load_string(str('''
+<Ramp@BoxLayout>:
+    size_hint: None, None
+    canvas:
+        Color:
+            rgb: 0.682, 0.251, 0.98
+        Rectangle:
+            pos: self.pos
+            size: self.size
+
 <Root>:
     slotleft: slotleft
     slotright: slotright
-    BoxLayout:
+    Ramp:
         id: slotleft
-        size_hint: None, None
-        size: root.width * .6, root.height * .01
-        pos: 0, root.height * .2
-        canvas:
-            Color:
-                rgb: 0.682, 0.251, 0.98
-            Rectangle:
-                pos: self.pos
-                size: self.size
-    BoxLayout:
+        size: 450, 6
+        pos: -50, 120
+    Ramp:
         id: slotright
-        size_hint: None, None
-        size: root.width * .4, root.height * .01
-        pos: root.width * .625, root.height * .2
-        canvas:
-            Color:
-                rgb: 0.682, 0.251, 0.98
-            Rectangle:
-                pos: self.pos
-                size: self.size
+        size: 450, 6
+        pos: 430, 120
+
 '''))
 
 
@@ -84,7 +80,7 @@ class Coin(Rotabox):
                                      (0.884, 0.372), (0.893, 0.641),
                                      (0.658, 0.889), (0.305, 0.889),
                                      (0.051, 0.637), (0.06, 0.325)]]}
-        # self.draw_bounds = True
+        # self.draw_bounds = 1
         self.turn()
 
     def turn(self, frame=0, *args):
@@ -107,8 +103,7 @@ class Root(FloatLayout):
 
     def update(self, *args):
         if time.clock() - self.lastTime > 1:
-            self.coins.append(Coin(scale=.7,
-                                   pos=(self.width * .01, self.height * .2)))
+            self.coins.append(Coin(pos=(self.width * -.1, self.height * .2)))
             self.add_widget(self.coins[-1])
             self.lastTime = time.clock()
 
