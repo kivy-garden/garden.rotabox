@@ -17,13 +17,21 @@ ____________________ RUN THE MODULE DIRECTLY TO USE ___________________________
 unjuan 2019
 '''
 
-from __future__ import absolute_import, division, unicode_literals
+from __future__ import absolute_import, division, unicode_literals, print_function
 import json, os, sys
 
-os.chdir(os.path.dirname(os.path.abspath(sys.argv[0])))  # Sets the current dir to the program's dir.
+PYTHON2 = False
+if sys.version_info < (3, 0):  # Python 2.x
+    from codecs import open
+    range = range
+    PYTHON2 = True
+from future.utils import iteritems, iterkeys, itervalues
+
+# Sets the current dir to the program's dir.
+os.chdir(os.path.dirname(os.path.abspath(sys.argv[0])))
 app_config = {}
 try:
-    with open('rotaboxer/settings.json', 'r') as app_settings:
+    with open('rotaboxer/settings.json', 'r', encoding="UTF8") as app_settings:
         app_config = json.load(app_settings)
 except (IOError, KeyError) as err:
     print('on loading settings: ', err)
@@ -64,8 +72,9 @@ import re
 import traceback
 import time
 
+
 __author__ = 'unjuan'
-__version__ = '0.12.0'
+__version__ = '0.12.1'
 
 
 class Sprite(BoxLayout):
@@ -112,7 +121,7 @@ class Point(ToggleButton):
     def set_origin(self, point):
         pivot = point
         self.pivot_bond = ((pivot[0] - self.x) / float(self.width),
-                          (pivot[1] - self.y) / float(self.height))
+                           (pivot[1] - self.y) / float(self.height))
         self.pos = (self.x - (pivot[0] - point[0]),
                     self.y - (pivot[1] - point[1]))
     origin = AliasProperty(get_origin, set_origin)
@@ -135,6 +144,8 @@ class Point(ToggleButton):
         self.popup = None
         self.deselect = False
         self.pol = pol
+        self.area_color = 0, 0, 0, 0
+        self.line_color = 0, 0, 0, 0
 
     def on_size(self, *args):
         self.x -= self.size[0] * .5
@@ -178,7 +189,7 @@ class Point(ToggleButton):
             if self.root.to_transfer:
                 return
             if not self.root.ordered:
-                for pol in self.root.rec[self.root.frame].itervalues():
+                for pol in itervalues(self.root.rec[self.root.frame]):
                     if pol['number'] > self.pol['number']:
                         pol['number'] -= 1
                 self.pol['number'] = len(self.root.rec[self.root.frame]) - 1
@@ -300,7 +311,7 @@ class Editor(FloatLayout):
         self.animation = False
         self.clone_points = False
         self.ordered = True
-        self.history_states = 30 # UNDO STATES
+        self.history_states = 30  # UNDO STATES
         self.moves = []
         self.popup = None
         self.filename = ''
@@ -340,9 +351,9 @@ class Editor(FloatLayout):
                 if len(pol['btn_points']) > 1:
                     next_index = (self.index + 1) % len(pol['btn_points'])
                     x = (pol['btn_points'][self.index].center_x +
-                        pol['btn_points'][next_index].center_x) * .5
+                         pol['btn_points'][next_index].center_x) * .5
                     y = (pol['btn_points'][self.index].center_y +
-                        pol['btn_points'][next_index].center_y) * .5
+                         pol['btn_points'][next_index].center_y) * .5
                 else:
                     x, y = self.sprite.center
 
@@ -391,11 +402,11 @@ class Editor(FloatLayout):
                     self.pol = None
                     self.index = None
             except (LookupError, TypeError) as er:
-                print 'on remove_point: ', er
+                print('on remove_point: ', er)
             else:
                 if state:
-                    self.save_state('Removed point {} from polygon {}'.format(i,
-                                                                            p))
+                    self.save_state('Removed point {} from polygon {}'
+                                    .format(i, p))
                     self.draw()
 
     def remove_polygon(self, *args):
@@ -403,7 +414,7 @@ class Editor(FloatLayout):
             try:
                 pol = self.rec[self.frame][self.pol]
             except LookupError as er:
-                print 'on clear_polygon: ', er
+                print('on clear_polygon: ', er)
             else:
                 pol['btn_points'][self.index].dismiss_popup()
                 while len(pol['btn_points']):
@@ -422,7 +433,7 @@ class Editor(FloatLayout):
         frame = self.rec[self.frame]
 
         p = len(frame) - 1
-        for k, v in frame.iteritems():
+        for k, v in iteritems(frame):
             if v['number'] > pol['number']:
                 v['number'] -= 1
             elif v == pol:
@@ -497,7 +508,7 @@ class Editor(FloatLayout):
                 self.save_state('Cancelled transfer')
                 return
 
-            for p, plg in sorted(ptis.iteritems(), reverse=True):
+            for p, plg in sorted(iteritems(ptis), reverse=True):
                 for pidx in sorted(plg, reverse=True):
                     xpol = frame[p]
                     cutpoint = xpol['btn_points'][pidx]
@@ -510,7 +521,7 @@ class Editor(FloatLayout):
                     del xpol['btn_points'][pidx]
 
                     if not xpol['btn_points']:
-                        for apol in frame.itervalues():
+                        for apol in itervalues(frame):
                             if apol['number'] > xpol['number']:
                                 apol['number'] -= 1
                         self.scat.remove_widget(xpol['label'])
@@ -542,7 +553,7 @@ class Editor(FloatLayout):
                                  color=pol['color'][:-1] + [.3])
             self.scat.add_widget(pol['label'])
 
-            for p, plg in sorted(ptis.iteritems(), reverse=True):
+            for p, plg in sorted(iteritems(ptis), reverse=True):
                 for pidx in sorted(plg, reverse=True):
                     xpol = frame[p]
                     cutpoint = xpol['btn_points'][pidx]
@@ -555,7 +566,7 @@ class Editor(FloatLayout):
                     del xpol['btn_points'][pidx]
 
                     if not xpol['btn_points']:
-                        for apol in frame.itervalues():
+                        for apol in itervalues(frame):
                             if apol['number'] > xpol['number']:
                                 apol['number'] -= 1
                         self.scat.remove_widget(xpol['label'])
@@ -581,7 +592,7 @@ class Editor(FloatLayout):
                     point.line_color = point.norm_line_color
                 point.multi_selected = False
             except (KeyError, IndexError) as er:
-                print 'on empty_cut: ', er
+                print('on empty_cut: ', er)
         del self.to_transfer[:]
 
     def save_state(self, msg='__state', move=0, switch=0):
@@ -594,8 +605,8 @@ class Editor(FloatLayout):
                 args = self.motion_args[-1].split('_')
                 last = self.moves[-1][:]
                 last = ('Moved point {} of polygon {} to {}'.format(args[0],
-                                                                  args[1],
-                                                                  args[2]),
+                                                                    args[1],
+                                                                    args[2]),
                         last[1])
                 self.history.append(last)
                 self.changes += 1
@@ -652,7 +663,7 @@ class Editor(FloatLayout):
                 self.rec[self.frame][self.pol][
                     'btn_points'][self.index].state = 'down'
             except (KeyError, IndexError) as er:
-                print 'on change_state: ', er
+                print('on change_state: ', er)
 
             for entry in self.to_transfer:
                 pol = self.rec[self.frame][entry[0]]
@@ -689,11 +700,11 @@ class Editor(FloatLayout):
             self.sprite.center = self.width * .6, self.height * .5
 
             if self.clone_points:
-                for key in self.rec[cf].iterkeys():
+                for key in iterkeys(self.rec[cf]):
                     self.rec[self.frame][key] = {'btn_points': []}
                 for (k, v), (k2, v2) in \
-                        zip(self.rec[cf].iteritems(),
-                            self.rec[self.frame].iteritems()):
+                        zip(iteritems(self.rec[cf]),
+                            iteritems(self.rec[self.frame])):
 
                     for i, point in enumerate(v['btn_points']):
                         v2['btn_points'].append(Point(v2, self, self.mag,
@@ -710,7 +721,7 @@ class Editor(FloatLayout):
                     self.save_state('Cloned points of frame {} to frame {}'
                                     .format(cf, self.frame))
 
-            for pol in self.rec[self.frame].itervalues():
+            for pol in itervalues(self.rec[self.frame]):
                 for point in pol['btn_points']:
                     self.scat.add_widget(point)
                     point.area_color = point.norm_fill_color
@@ -735,16 +746,20 @@ class Editor(FloatLayout):
                                   'and will be lost.\nContinue?',
                       action=self.load_dialog)
             return
-        content = LoadDialog(load=self.load_check, cancel=self.dismiss_popup,
-                             file_types=['*.png', '*.atlas', '*.bounds'])
+        content = LoadDialog()
+        content.load = self.load_check
+        content.cancel = self.dismiss_popup
+        content.file_types = ['*.png', '*.atlas', '*.bounds']
         if os.path.isdir(self.last_dir):
             content.filechooser.path = self.last_dir
         else:
             content.filechooser.path = './'
-        self.popup = AutoPopup(content=content, size_hint=(.6, .9),
-                               color=(.4, .3, .2, 1),
-                               title='Open image, atlas or project file:',
-                               auto_dismiss=False)
+        self.popup = AutoPopup()
+        self.popup.content = content
+        self.popup.size_hint = .6, .9
+        self.popup.color = .4, .3, .2, 1
+        self.popup.title = 'Open image, atlas or project file:'
+        self.popup.auto_dismiss = False
         self.popup.open()
 
     def load_check(self, path, filename):
@@ -795,16 +810,16 @@ class Editor(FloatLayout):
             self.source = os.path.relpath(os.path.join(path, filename))
         except ValueError as er:
             self.source = os.path.join(path, filename)
-            print 'on load_img(relpath): ', er
+            print('on load_img(relpath): ', er)
         if filename.endswith('.atlas'):
             try:
-                with open(self.source, 'r') as ani:
+                with open(self.source, 'r', encoding="UTF8") as ani:
                     atlas = json.load(ani)
             except (IOError, KeyError) as er:
-                print 'On load_img(atlas reading):', er
+                print('On load_img(atlas reading):', er)
             else:
-                self.keys = sorted([key for key in atlas[filename.replace(
-                    '.atlas', '.png').split('\\')[-1]].iterkeys()])
+                self.keys = sorted([key for key in iterkeys(
+                    atlas[filename.replace('.atlas', '.png').split('\\')[-1]])])
                 self.filename = filename.replace('.atlas', '')
                 try:
                     self.atlas_source = ('atlas://' +
@@ -813,7 +828,7 @@ class Editor(FloatLayout):
                 except ValueError as er:
                     self.atlas_source = ('atlas://' +
                                          filename + '/' + self.keys[0])
-                    print 'on load_img(atlas relpath): ', er
+                    print('on load_img(atlas relpath): ', er)
                 for key in self.keys:
                     self.rec[key] = {}
                 self.frame = self.keys[0]
@@ -839,7 +854,7 @@ class Editor(FloatLayout):
     def load_proj(self, filename, path):
         source = os.path.join(path, filename)
         try:
-            with open(source, 'r') as proj:
+            with open(source, 'r', encoding="UTF8") as proj:
                 project = json.load(proj)
         except (IOError, KeyError) as er:
             print('On load_proj(proj reading): ', er)
@@ -862,7 +877,7 @@ class Editor(FloatLayout):
                 version = project['version']
                 del project['version']
             except KeyError as er:
-                print 'on load_proj(version): ', er
+                print('on load_proj(version): ', er)
                 version = '0.8.0'
             del project['image']
             Clock.schedule_once(partial(self.load_proj_fin, project, version,
@@ -875,8 +890,8 @@ class Editor(FloatLayout):
         self.draw()
 
     def clear_points(self):
-        for frame in self.rec.itervalues():
-            for pol in frame.itervalues():
+        for frame in itervalues(self.rec):
+            for pol in itervalues(frame):
                 while len(pol['btn_points']):
                     self.scat.remove_widget(pol['btn_points'].pop())
                 self.scat.remove_widget(pol['label'])
@@ -884,11 +899,11 @@ class Editor(FloatLayout):
         self.rec.clear()
 
     def restore(self, snapshot, version):
-        for f, sframe in snapshot.iteritems():
+        for f, sframe in iteritems(snapshot):
             if f in ('frame', 'pol', 'index', 'to_transfer'):
                 continue
             self.rec[f] = {}
-            for p, pol in sframe.iteritems():
+            for p, pol in iteritems(sframe):
                 self.rec[f][p] = {}
                 self.rec[f][p]['key'] = pol['key']
                 self.rec[f][p]['number'] = pol['number']
@@ -911,7 +926,7 @@ class Editor(FloatLayout):
                                                 for i, point in enumerate(
                                                                 pol['points'])]
                 if f == self.frame:
-                    for i in xrange(len(self.rec[f][p]['btn_points'])):
+                    for i in range(len(self.rec[f][p]['btn_points'])):
                         point = self.rec[f][p]['btn_points'][i]
                         self.scat.add_widget(point)
                         point.area_color = point.norm_fill_color
@@ -984,7 +999,7 @@ class Editor(FloatLayout):
     def to_clipboard(self, py=True, *args):
         self.dismiss_popup()
         self.write(py)
-        code = self.code.decode('utf-8')
+        code = self.code if not PYTHON2 else self.code.decode('utf-8')
         Clipboard.copy(code)
         self.warn('Bounds exported!',
                   'Code is now on the clipboard,\n'
@@ -995,7 +1010,7 @@ class Editor(FloatLayout):
         print(Clipboard.paste())
 
     def write(self, py=True):
-        if self.atlas_source and self.animation == True:
+        if self.atlas_source and self.animation:
             if py:
                 self.code = 'custom_bounds = {\n            '
             else:
@@ -1034,7 +1049,7 @@ class Editor(FloatLayout):
         pols = []
         i = 0
         while i < len(frame):
-            for pol in frame.itervalues():
+            for pol in itervalues(frame):
                 if pol['number'] == i:
                     pols.append(pol)
                     break
@@ -1042,7 +1057,7 @@ class Editor(FloatLayout):
         return pols
 
     def calc_hints(self, frame):
-        for pol in frame.itervalues():
+        for pol in itervalues(frame):
             if len(pol['btn_points']):
                 pol['hints'] = [(round(float(point.center_x - self.sprite.x) /
                                        self.sprite.width, 3),
@@ -1054,7 +1069,7 @@ class Editor(FloatLayout):
 
     def write_more(self, pols, py):
         opens = []
-        anim = self.atlas_source and self.animation == True
+        anim = self.atlas_source and self.animation
         if anim:
             poiws = '\n                   '
             polws = '\n                  '
@@ -1087,9 +1102,9 @@ class Editor(FloatLayout):
 
     # ------------------------ STORAGE -----------------------
     def store(self, project):
-        for f, frame in self.rec.iteritems():
+        for f, frame in iteritems(self.rec):
             project[f] = {}
-            for p, pol in frame.iteritems():
+            for p, pol in iteritems(frame):
                 project[f][p] = {}
                 project[f][p]['key'] = pol['key']
                 project[f][p]['number'] = pol['number']
@@ -1113,7 +1128,7 @@ class Editor(FloatLayout):
         content.ids.filechooser.path = self.last_dir
         content.text_input.text = (self.save_name.split('\\')[-1])
         self.popup = AutoPopup(content=content, size_hint=(.6, .9),
-                           title='Save project:', auto_dismiss=False)
+                               title='Save project:', auto_dismiss=False)
         self.popup.open()
 
     def save_check(self, path, filename):
@@ -1137,10 +1152,10 @@ class Editor(FloatLayout):
         project['image'] = self.image
         project['version'] = __version__
         try:
-            with open(self.save_name, 'w+') as proj:
+            with open(self.save_name, 'w+', encoding="UTF8") as proj:
                 json.dump(project, proj, sort_keys=True, indent=4)
         except IOError as er:
-            print 'On save_proj:', er
+            print('On save_proj:', er)
         else:
             self.changes = 0
 
@@ -1151,10 +1166,10 @@ class Editor(FloatLayout):
         root, ext = os.path.splitext(self.save_name)
         save_name = root + '_RESCUED_' + ext
         try:
-            with open(save_name, 'w+') as proj:
+            with open(save_name, 'w+', encoding="UTF8") as proj:
                 json.dump(project, proj, sort_keys=True, indent=4)
         except IOError as er:
-            print 'On exit_save: ', er
+            print('On exit_save: ', er)
 
     # ---------------------- USER EVENTS ---------------------
     def on_touch_down(self, touch):
@@ -1310,9 +1325,9 @@ class Editor(FloatLayout):
                 self.save_dialog()
 
         if key == 270 or key == 61:  # +
-                self.zoom('in')
+            self.zoom('in')
         if key == 269 or key == 45:  # -
-                self.zoom('out')
+            self.zoom('out')
 
         if key == 49:  # 1
             self.set_color([.29, .518, 1, 1])
@@ -1345,9 +1360,9 @@ class Editor(FloatLayout):
                 self.change_state('redo')
 
         if key == 46:  # >
-                self.navigate('>')
+            self.navigate('>')
         if key == 44:  # <
-                self.navigate('<')
+            self.navigate('<')
 
         if key == 307 or key == 308:  # Alt
             self.prev.text = 't'
@@ -1356,7 +1371,7 @@ class Editor(FloatLayout):
 
         if key == 97:  # A
             if ['ctrl'] in args:
-                for p, pol in (self.rec[self.frame]).iteritems():
+                for p, pol in (iteritems(self.rec[self.frame])):
                     for i, point in enumerate(pol['btn_points']):
                         self.to_transfer.append((p, i))
                         point.multi_selected = True
@@ -1370,7 +1385,7 @@ class Editor(FloatLayout):
                     self.rec[self.frame][self.pol]['btn_points'][self.index]\
                         .state = 'down'
                 except KeyError as er:
-                    print 'on on_key(Space): ', er
+                    print('on on_key(Space): ', er)
                 return True
 
         if key == 273:  # up
@@ -1383,11 +1398,11 @@ class Editor(FloatLayout):
                 else:
                     curr_point.center_y += 1
                 self.save_state(msg=str(self.index)
-                                    + '_'
-                                    + str(self.pol)
-                                    + '_'
-                                    + str((round(curr_point.center_x),
-                                           round(curr_point.center_y))),
+                                + '_'
+                                + str(self.pol)
+                                + '_'
+                                + str((round(curr_point.center_x),
+                                       round(curr_point.center_y))),
                                 move=1)
         if key == 274:  # down
             for point in self.to_transfer:
@@ -1399,12 +1414,12 @@ class Editor(FloatLayout):
                 else:
                     curr_point.center_y -= 1
                 self.save_state(msg=str(self.index)
-                                     + '_'
-                                     + str(self.pol)
-                                     + '_'
-                                     + str((round(curr_point.center_x),
-                                            round(curr_point.center_y))),
-                                 move=1)
+                                + '_'
+                                + str(self.pol)
+                                + '_'
+                                + str((round(curr_point.center_x),
+                                       round(curr_point.center_y))),
+                                move=1)
         if key == 275:  # right
             for point in self.to_transfer:
                 curr_point = self.rec[self.frame][point[0]]['btn_points'][point[1]]
@@ -1415,12 +1430,12 @@ class Editor(FloatLayout):
                 else:
                     curr_point.center_x += 1
                 self.save_state(msg=str(self.index)
-                                     + '_'
-                                     + str(self.pol)
-                                     + '_'
-                                     + str((round(curr_point.center_x),
-                                            round(curr_point.center_y))),
-                                 move=1)
+                                + '_'
+                                + str(self.pol)
+                                + '_'
+                                + str((round(curr_point.center_x),
+                                       round(curr_point.center_y))),
+                                move=1)
         if key == 276:  # left
             for point in self.to_transfer:
                 curr_point = self.rec[self.frame][point[0]]['btn_points'][point[1]]
@@ -1431,11 +1446,11 @@ class Editor(FloatLayout):
                 else:
                     curr_point.center_x -= 1
                 self.save_state(msg=str(self.index)
-                                     + '_'
-                                     + str(self.pol)
-                                     + '_'
-                                     + str((round(curr_point.center_x),
-                                            round(curr_point.center_y))),
+                                + '_'
+                                + str(self.pol)
+                                + '_'
+                                + str((round(curr_point.center_x),
+                                       round(curr_point.center_y))),
                                 move=1)
 
         # ---------------- IF SELECTED POINT
@@ -1467,7 +1482,7 @@ class Editor(FloatLayout):
                         self.pol = str(
                             (int(self.pol) - 1) % len(self.rec[self.frame]))
                         pol = self.rec[self.frame][self.pol]
-                        for apol in (self.rec[self.frame]).itervalues():
+                        for apol in itervalues(self.rec[self.frame]):
                             if apol['number'] > pol['number']:
                                 apol['number'] -= 1
                         pol['number'] = len(self.rec[self.frame]) - 1
@@ -1487,11 +1502,11 @@ class Editor(FloatLayout):
                     else:
                         curr_point.center_y += 1
                     self.save_state(msg=str(self.index)
-                                        + '_'
-                                        + str(self.pol)
-                                        + '_'
-                                        + str((round(curr_point.center_x),
-                                               round(curr_point.center_y))),
+                                    + '_'
+                                    + str(self.pol)
+                                    + '_'
+                                    + str((round(curr_point.center_x),
+                                           round(curr_point.center_y))),
                                     move=1)
             if key == 274:  # down
                 if not self.to_transfer:
@@ -1502,12 +1517,12 @@ class Editor(FloatLayout):
                     else:
                         curr_point.center_y -= 1
                     self.save_state(msg=str(self.index)
-                                         + '_'
-                                         + str(self.pol)
-                                         + '_'
-                                         + str((round(curr_point.center_x),
-                                                round(curr_point.center_y))),
-                                     move=1)
+                                    + '_'
+                                    + str(self.pol)
+                                    + '_'
+                                    + str((round(curr_point.center_x),
+                                           round(curr_point.center_y))),
+                                    move=1)
             if key == 275:  # right
                 if not self.to_transfer:
                     if ['ctrl'] in args:
@@ -1517,12 +1532,12 @@ class Editor(FloatLayout):
                     else:
                         curr_point.center_x += 1
                     self.save_state(msg=str(self.index)
-                                         + '_'
-                                         + str(self.pol)
-                                         + '_'
-                                         + str((round(curr_point.center_x),
-                                                round(curr_point.center_y))),
-                                     move=1)
+                                    + '_'
+                                    + str(self.pol)
+                                    + '_'
+                                    + str((round(curr_point.center_x),
+                                           round(curr_point.center_y))),
+                                    move=1)
             if key == 276:  # left
                 if not self.to_transfer:
                     if ['ctrl'] in args:
@@ -1532,11 +1547,11 @@ class Editor(FloatLayout):
                     else:
                         curr_point.center_x -= 1
                     self.save_state(msg=str(self.index)
-                                         + '_'
-                                         + str(self.pol)
-                                         + '_'
-                                         + str((round(curr_point.center_x),
-                                                round(curr_point.center_y))),
+                                    + '_'
+                                    + str(self.pol)
+                                    + '_'
+                                    + str((round(curr_point.center_x),
+                                           round(curr_point.center_y))),
                                     move=1)
         self.draw()
 
@@ -1553,7 +1568,7 @@ class Editor(FloatLayout):
         if self.rec:
             frame = self.rec[self.frame]
             if self.nums_on:
-                for p, pol in frame.iteritems():
+                for p, pol in iteritems(frame):
                     xs = 0
                     ys = 0
                     minx = 1000000
@@ -1585,7 +1600,7 @@ class Editor(FloatLayout):
                     label.text = str(pol['key'])
                     label.opacity = 1
             else:
-                for pol in frame.itervalues():
+                for pol in itervalues(frame):
                     for point in pol['btn_points']:
                         point.text = ''
                     pol['label'].opacity = 0
@@ -1815,9 +1830,9 @@ class Editor(FloatLayout):
         self.draw_group.clear()
         if not self.rec:
             self.rec = {'0': {}}
-        for pol in self.rec[self.frame].itervalues():
+        for pol in itervalues(self.rec[self.frame]):
             points = pol['btn_points']
-            for i in xrange(len(points)):
+            for i in range(len(points)):
                 if not pol['open']:
                     k = (i + 1) % len(points)
                 else:
@@ -1905,7 +1920,8 @@ class Editor(FloatLayout):
                                  'custom_bounds:\n            []',
                                  'custom_bounds = {}',
                                  'custom_bounds:\n            {}'):
-                if Clipboard.paste() != self.code.decode('utf-8'):
+                clip = self.code if not PYTHON2 else self.code.decode('utf-8')
+                if Clipboard.paste() != clip:
                     copied = False
 
             self.warn('Warning!', 'There are unsaved changes.\n'
@@ -1933,7 +1949,7 @@ class Editor(FloatLayout):
                   'top': Window.top,
                   'last dir': self.last_dir}
         try:
-            with open('rotaboxer/settings.json', 'w+') as settings:
+            with open('rotaboxer/settings.json', 'w+', encoding="UTF8") as settings:
                 json.dump(config, settings)
         except IOError as er:
             print('On save_window: ', er)
@@ -2080,7 +2096,7 @@ If not in Windows and the user exits the editor without saving changes (not beca
         self.popup.title = 'Help'
         self.popup.open()
 
-        
+
 class AutoPopup(Popup):
     '''Subclassing, to compensate if Esc key was used to close a popup.
     Seems that by (automatically) closing the popup, Esc consumes the event
@@ -2158,7 +2174,8 @@ class LoadDialog(BoxLayout):
         """ Creates the Drive list in Windows OS.
         """
         for i in get_win_drives():
-            btn = DarkButton(text=i)
+            btn = DarkButton()
+            btn.text = i
             btn.bind(on_press=self.on_drive_selected)
             self.ids.drives_list.add_widget(btn)
         self.ids.drives_list.add_widget(Label())  # add empty space under the drives
@@ -2224,7 +2241,9 @@ class Rotaboxer(App):
 
     def build(self):
         self.use_kivy_settings = False
-        self.texture = Image(source='rotaboxer/grid.png').texture
+        img = Image()
+        img.source = 'rotaboxer/grid.png'
+        self.texture = img.texture
         self.texture.wrap = 'repeat'
         self.texture.uvsize = (8, 8)
         Builder.load_file('rotaboxer/rotaboxer.kv')
@@ -2246,7 +2265,7 @@ class Rotaboxer(App):
 
 def error_print():
     """ Appends the current error to the log text."""
-    with open("rotaboxer/err_log.txt", "a") as log:
+    with open("rotaboxer/err_log.txt", "a", encoding="UTF8") as log:
         log.write('\nCrash@{}\n'.format(time.strftime("%Y-%m-%d %H:%M:%S")))
     traceback.print_exc(file=open("rotaboxer/err_log.txt", "a"))
     traceback.print_exc()

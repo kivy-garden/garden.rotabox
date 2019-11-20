@@ -1,4 +1,4 @@
-'''
+"""
 
 ROTABOX                                           kivy 1.10.0 - python 2.7.13
 =======
@@ -275,10 +275,10 @@ ___________________________________________________________________________
 A Rotabox example can be seen if this module is run directly.
 
 unjuan 2019
-'''
+"""
 
 __author__ = 'unjuan'
-__version__ = '0.12.0'
+__version__ = '0.12.1'
 
 __all__ = ('Rotabox', )
 
@@ -293,24 +293,29 @@ from kivy.properties import (NumericProperty, ReferenceListProperty,
                              AliasProperty, ObjectProperty, BooleanProperty,
                              ListProperty, BoundedNumericProperty)
 from math import radians, sin, cos
-import json
+import json, sys
+
+if sys.version_info < (3, 0):  # Python 2.x
+    from codecs import open
+    range = xrange
+from future.utils import iteritems, itervalues
 
 try:
     from cybounds import define_bounds, resize, aniresize, get_peers, \
         update_bounds, aniupdate_bounds, point_in_bounds, collide_bounds
     peers = get_peers()
 except ImportError:
-    print 'cybounds module not found. Using internal functions instead.'
+    print('cybounds module not found. Using internal functions instead.')
     from array import array
     peers = {}
 
     def scale(points, length, width, height):
-        for h in xrange(0, length, 2):
+        for h in range(0, length, 2):
             points[h] = points[h] * width
             points[h+1] = points[h+1] * height
 
     def move(points, length, pos0, pos1):
-        for i in xrange(0, length, 2):
+        for i in range(0, length, 2):
             points[i] = points[i] + pos0
             points[i+1] = points[i+1] + pos1
 
@@ -318,7 +323,7 @@ except ImportError:
         c = cos(angle)
         s = sin(angle)
 
-        for j in xrange(0, length, 2):
+        for j in range(0, length, 2):
             points[j] = points[j] - orig0
             points[j+1] = points[j+1] - orig1
             pj = points[j]
@@ -329,7 +334,7 @@ except ImportError:
 
     def calc_segboxes(points, polids, ptids, plens, length, bbox, blefts, bbotts,
                       brghts, btops):
-        for k in xrange(0, length, 2):
+        for k in range(0, length, 2):
             k1 = k + 1
             off = plens[polids[k]] * 2 - 2
             if ptids[k] < plens[polids[k]] - 1:
@@ -355,12 +360,12 @@ except ImportError:
 
     def calc_polboxes(points, plens, bbox, blefts, bbotts, brghts, btops):
         strt = 0
-        for p in xrange(len(plens)):
+        for p in range(len(plens)):
             left = 9999.
             bottom = 9999.
             right = 0.
             top = 0.
-            for l in xrange(strt, strt + plens[p] * 2, 2):
+            for l in range(strt, strt + plens[p] * 2, 2):
                 l1 = l + 1
 
                 if points[l] < left:
@@ -393,10 +398,10 @@ except ImportError:
                  t_box[2], t_box[3], t_box[0], t_box[3]]
         o = 0
         strt = 0
-        for p in xrange(len(plens)):
+        for p in range(len(plens)):
             if p in opens:
                 o = 2
-            for i in xrange(strt, strt + plens[p] * 2 - o, 2):
+            for i in range(strt, strt + plens[p] * 2 - o, 2):
                 i1 = i + 1
                 off = plens[p] * 2 - 2
                 if ptids[i] < plens[p] - 1:
@@ -410,7 +415,7 @@ except ImportError:
                 v20 = pts[i2]
                 v21 = pts[i3]
 
-                for j in xrange(0, 8, 2):
+                for j in range(0, 8, 2):
                     j1 = j + 1
                     t_off = 6
                     if j < 6:
@@ -446,10 +451,10 @@ except ImportError:
     def intersection_f(pts, ptids, plens, opens, t_pts, t_polis, t_ptis, t_plens):
         o = 0
         strt = 0
-        for p in xrange(len(plens)):
+        for p in range(len(plens)):
             if p in opens:
                 o = 2
-            for i in xrange(strt, strt + plens[p] * 2 - o, 2):
+            for i in range(strt, strt + plens[p] * 2 - o, 2):
                 i1 = i + 1
                 off = plens[p] * 2 - 2
                 if ptids[i] < plens[p] - 1:
@@ -464,8 +469,8 @@ except ImportError:
                 v21 = pts[i3]
 
                 t_strt = 0
-                for t_p in xrange(len(t_plens)):
-                    for j in xrange(t_strt, t_strt + t_plens[t_p] * 2, 2):
+                for t_p in range(len(t_plens)):
+                    for j in range(t_strt, t_strt + t_plens[t_p] * 2, 2):
                         j1 = j + 1
                         t_off = t_plens[t_polis[j]] * 2 - 2
                         if t_ptis[j] < t_plens[t_polis[j]] - 1:
@@ -505,10 +510,10 @@ except ImportError:
         o = 0
         t_o = 0
         strt = 0
-        for p in xrange(len(plens)):
+        for p in range(len(plens)):
             if p in opens:
                 o = 2
-            for i in xrange(strt, strt + plens[p] * 2 - o, 2):
+            for i in range(strt, strt + plens[p] * 2 - o, 2):
                 if rghts[i] < t_box[0]:
                     continue
                 if lefts[i] > t_box[2]:
@@ -531,10 +536,10 @@ except ImportError:
                 v21 = pts[i3]
 
                 t_strt = 0
-                for t_p in xrange(len(t_plens)):
+                for t_p in range(len(t_plens)):
                     if t_p in t_opens:
                         t_o = 2
-                    for j in xrange(t_strt, t_strt + t_plens[t_p] * 2 - t_o, 2):
+                    for j in range(t_strt, t_strt + t_plens[t_p] * 2 - t_o, 2):
                         if rghts[i] < t_lefts[j]:
                             continue
                         if lefts[i] > t_rghts[j]:
@@ -594,7 +599,7 @@ except ImportError:
                 strt = strt + pl * 2
                 continue
 
-            for k in xrange(0, t_le, 2):
+            for k in range(0, t_le, 2):
                 x = t_pts[k]
                 y = t_pts[k + 1]
                 # Preliminary 2: pol's bbox vs widget's points to filter out.
@@ -614,7 +619,7 @@ except ImportError:
                 # outside.
                 c = 0
                 j = strt + pl * 2 - 2
-                for i in xrange(strt, strt + pl * 2, 2):
+                for i in range(strt, strt + pl * 2, 2):
                     x1 = pts[j]
                     y1 = pts[j+1]
                     x2 = pts[i]
@@ -695,7 +700,7 @@ except ImportError:
             for r, rang in enumerate(bounds['pol_lens']):
                 c = 0
                 j = strt + rang * 2 - 2
-                for i in xrange(strt, strt + rang * 2, 2):
+                for i in range(strt, strt + rang * 2, 2):
                     x1, y1 = bounds['points'][j], bounds['points'][j+1]
                     x2, y2 = bounds['points'][i], bounds['points'][i+1]
                     if (((y2 > y) != (y1 > y)) and
@@ -770,38 +775,38 @@ except ImportError:
         peers[rid]['bbox'] = bbox
 
     def resize(width, height, rid):
-        for k, frame in peers[rid].iteritems():
+        for k, frame in iteritems(peers[rid]):
             if k == 'bounds':
                 bounds = peers[rid]['bounds']
                 bounds['points'][:] = bounds['hints']
                 scale(bounds['points'], bounds['length'], width, height)
                 break
         else:
-            for k, frame in peers[rid].iteritems():
+            for k, frame in iteritems(peers[rid]):
                 if k != 'bbox' and k != 'vbbox' and k != 'hhits' and k != 'seg' \
                         and k != 'friendly':
                     frame['points'][:] = frame['hints']
                     scale(frame['points'], frame['length'], width, height)
 
     def aniresize(width, height, rid):
-        for k, frame in peers[rid].iteritems():
+        for k, frame in iteritems(peers[rid]):
             if k == 'bounds':
                 bounds = peers[rid]['bounds']
                 bounds['sca_pts'][:] = bounds['hints']
                 scale(bounds['sca_pts'], bounds['length'], width, height)
                 break
         else:
-            for k, frame in peers[rid].iteritems():
+            for k, frame in iteritems(peers[rid]):
                 if k != 'bbox' and k != 'seg' and k != '':
                     frame['sca_pts'][:] = frame['hints']
                     scale(frame['sca_pts'], frame['length'], width, height)
 
     def define_frame(frame, opens, seg_mode, bounds, ani=False):
-        for p in xrange(len(frame)):
+        for p in range(len(frame)):
             pol = frame[p]
             plen = len(pol)
             array.extend(bounds['pol_lens'], array('i', [plen]))
-            for i in xrange(plen):
+            for i in range(plen):
                 array.extend(bounds['hints'], array('d', [pol[i][0], pol[i][1]]))
                 array.extend(bounds['pol_ids'], array('i', [p, p]))
                 array.extend(bounds['pt_ids'], array('i', [i, i]))
@@ -831,7 +836,7 @@ except ImportError:
         frames = {}
 
         if isinstance(custom_bounds, dict):   # Animation case
-            for key, frame in custom_bounds.iteritems():
+            for key, frame in iteritems(custom_bounds):
                 bounds = {'hints': array('d'), 'sca_pts': array('d'),
                           'mov_pts': array('d'), 'points': array('d'),
                           'pol_ids': array('i'), 'pt_ids': array('i'),
@@ -991,30 +996,30 @@ class Rotabox(Widget):
     collide_after_children = BooleanProperty(False)
 
     # ------------------------------------------------------- UTILITY INTERFACE
-    '''Access a point's current position, based on [custom_bounds] structure.'''
     def get_point(self, pol_index, point_index):
+        '''Access a point's current position, based on [custom_bounds] structure.'''
         bounds = peers[self.rid][self.curr_key]
         index = (sum(bounds['pol_lens'][:pol_index]) + point_index) * 2
         return list(bounds['points'][index:index + 2])
 
-    '''Define [custom_bounds] using a rotaboxer's project file.
-    To work, [size] should be already defined.'''
     def read_bounds(self, filename):
+        '''Define [custom_bounds] using a rotaboxer's project file.
+        To work, [size] should be already defined.'''
         try:
-            with open(filename, 'r') as proj:
+            with open(filename, 'r', encoding="UTF8") as proj:
                 project = json.load(proj)
         except (IOError, KeyError) as er:
-            print 'On read_bounds: ', er
+            print('On read_bounds: ', er)
         else:
             bounds = {}
             opens = []
-            for f, frame in project.iteritems():
+            for f, frame in iteritems(project):
                 if f in ('image', 'version'):
                     continue
                 pols = []
                 i = 0
                 while i < len(frame):
-                    for pol in frame.itervalues():
+                    for pol in itervalues(frame):
                         if pol['number'] == i:
                             pols.append(pol)
                             break
@@ -1034,7 +1039,7 @@ class Rotabox(Widget):
                 if opens:
                     self.open_bounds = opens
                 if blen == 1:
-                    bounds = bounds[bounds.keys()[0]]
+                    bounds = bounds[list(bounds.keys())[0]]
                 return bounds
             else:
                 return self.custom_bounds
@@ -1552,14 +1557,14 @@ class Rotabox(Widget):
 
         if self.anim:
             pols = max([len(frame)
-                        for frame in self.custom_bounds.itervalues()])
+                        for frame in itervalues(self.custom_bounds)])
             length = max([len(pol)
-                          for pol in self.custom_bounds.itervalues()])
+                          for pol in itervalues(self.custom_bounds)])
         else:
             pols = len(self.custom_bounds)
             length = peers[self.rid][self.curr_key]['length']
 
-        for i in xrange(pols):
+        for i in range(pols):
             if i not in self.open_bounds or not self.segment_mode:
                 self.draw_lines += tuple([Line(close=True, dash_offset=3,
                                                dash_length=5)])
@@ -1576,12 +1581,12 @@ class Rotabox(Widget):
                 self.box_lines += tuple(Line(close=True,
                                              dash_offset=5,
                                              dash_length=3)
-                                        for _ in xrange(length + 1))
+                                        for _ in range(length + 1))
             else:
                 self.box_lines += tuple(Line(close=True,
                                              dash_offset=5,
                                              dash_length=3)
-                                        for _ in xrange(pols + 1))
+                                        for _ in range(pols + 1))
             self.box_lines[-1].dash_offset = 8
             self.box_lines[-1].dash_length = 5
 
@@ -1615,9 +1620,9 @@ class Rotabox(Widget):
             start = 0
             for i, leng in enumerate(bounds['pol_lens']):
                 self.draw_lines[i].points = [bounds['points'][j]
-                                             for j in xrange(start,
-                                                             start
-                                                             + leng * 2)]
+                                             for j in range(start,
+                                                            start
+                                                            + leng * 2)]
                 if self.draw_bounds > 1 and not self.segment_mode:
                     try:
                         self.box_lines[i].points = [bounds['lefts'][i],
@@ -1638,7 +1643,7 @@ class Rotabox(Widget):
                 except KeyError:
                     pass
                 else:
-                    for j in xrange(bounds['length']/2):
+                    for j in range(bounds['length']/2):
                         self.box_lines[j].points = [bounds['lefts'][j*2],
                                                     bounds['botts'][j*2],
                                                     bounds['rights'][j*2],
