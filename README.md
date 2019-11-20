@@ -1,6 +1,6 @@
 
 # Rotabox
-*version 0.12.0 (python 2.7.13 - kivy 1.10.0)*
+*version 0.12.1 (kivy 1.10.0)*
 #### A kivy widget with revolving collision detection, custom bounds and multitouch interactivity.
 
 ![example](images/example.png)
