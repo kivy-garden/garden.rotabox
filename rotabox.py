@@ -1,6 +1,6 @@
 """
 
-ROTABOX                                           kivy 1.10.0 - python 2.7.13
+ROTABOX                                                           kivy 1.10.0
 =======
 
 Rotabox is a *kivy widget* with customizable 2D bounds that follow its rotation.
