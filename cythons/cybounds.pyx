@@ -99,8 +99,8 @@ cdef calc_polboxes(double[::1] points, int[::1] plens, double[::1] bbox,
     cdef double left, bottom, right, top, ipt, i1pt
 
     for p in range(len(plens)):
-        left = 9999.
-        bottom = 9999.
+        left = float("inf")
+        bottom = float("inf")
         right = 0.
         top = 0.
         for i in range(strt, strt + plens[p] * 2, 2):
@@ -549,7 +549,7 @@ cpdef point_in_bounds(x, y, rid, frame='bounds'):
     for r, rang in enumerate(bounds['pol_lens']):
         c = 0
         j = strt + rang * 2 - 2
-        for i in xrange(strt, strt + rang * 2, 2):
+        for i in range(strt, strt + rang * 2, 2):
             x1, y1 = bounds['points'][j], bounds['points'][j+1]
             x2, y2 = bounds['points'][i], bounds['points'][i+1]
             if (((y2 > y) != (y1 > y)) and
@@ -577,7 +577,7 @@ cpdef update_bounds(motion, angle, origin, rid, frame='bounds'):
     if angle:
         rotate(bounds['points'], bounds['length'], angle, origin[0], origin[1])
 
-    bbox = array.array('d', [9999., 9999., 0., 0.])
+    bbox = array.array('d', [float("inf"), float("inf"), 0., 0.])
 
     if not peers[rid]['pre_check']:
         calc_bbox(bounds['points'], bounds['length'], bbox)
@@ -613,7 +613,7 @@ cpdef aniupdate_bounds(motion, pos, angle, origin, rid, frame='bounds'):
         bounds['points'][:] = bounds['mov_pts']
         rotate(bounds['points'], bounds['length'], angle, origin[0], origin[1])
 
-    bbox = array.array('d', [9999., 9999., 0., 0.])
+    bbox = array.array('d', [float("inf"), float("inf"), 0., 0.])
 
     if not peers[rid]['pre_check']:
         calc_bbox(bounds['points'], bounds['length'], bbox)
@@ -631,28 +631,28 @@ cpdef aniupdate_bounds(motion, pos, angle, origin, rid, frame='bounds'):
 
 
 cpdef resize(width, height, rid):
-    for k, frame in peers[rid].iteritems():
+    for k, frame in peers[rid].items():
         if k == 'bounds':
             bounds = peers[rid]['bounds']
             bounds['points'][:] = bounds['hints']
             scale(bounds['points'], bounds['length'], width, height)
             break
     else:
-        for k, frame in peers[rid].iteritems():
+        for k, frame in peers[rid].items():
             if k != 'bbox' and k != 'seg' and k != 'pre_check':
                 frame['points'][:] = frame['hints']
                 scale(frame['points'], frame['length'], width, height)
 
 
 cpdef aniresize(width, height, rid):
-    for k, frame in peers[rid].iteritems():
+    for k, frame in peers[rid].items():
         if k == 'bounds':
             bounds = peers[rid]['bounds']
             bounds['sca_pts'][:] = bounds['hints']
             scale(bounds['sca_pts'], bounds['length'], width, height)
             break
     else:
-        for k, frame in peers[rid].iteritems():
+        for k, frame in peers[rid].items():
             if k != 'bbox' and k != 'seg' and k != 'pre_check':
                 frame['sca_pts'][:] = frame['hints']
                 scale(frame['sca_pts'], frame['length'], width, height)
@@ -667,7 +667,7 @@ cdef define_frame(list frame, dict bounds, int[::1] opens,
         pol = frame[p]
         plen = len(pol)
         array.extend(bounds['pol_lens'], array.array('i', [plen]))
-        for i in xrange(plen):
+        for i in range(plen):
             array.extend(bounds['hints'], array.array('d', [pol[i][0], pol[i][1]]))
             array.extend(bounds['pol_ids'], array.array('i', [p, p]))
             array.extend(bounds['pt_ids'], array.array('i', [i, i]))
@@ -678,8 +678,8 @@ cdef define_frame(list frame, dict bounds, int[::1] opens,
             length = bounds['length']
         else:
             length = len(bounds['pol_lens'])
-        bounds['lefts'] = array.array('d', [9999.] * length)
-        bounds['botts'] = array.array('d', [9999.] * length)
+        bounds['lefts'] = array.array('d', [float("inf")] * length)
+        bounds['botts'] = array.array('d', [float("inf")] * length)
         bounds['rights'] = array.array('d', [0.] * length)
         bounds['tops'] = array.array('d', [0.] * length)
 
@@ -697,7 +697,7 @@ cpdef define_bounds(custom_bounds, open_bounds, segment_mode, rid, pre_check):
     cdef dict frames = {}
 
     if isinstance(custom_bounds, dict):   # Animation case
-        for key, frame in custom_bounds.iteritems():
+        for key, frame in custom_bounds.items():
             bounds = {'hints': array.array('d'), 'sca_pts': array.array('d'),
                       'mov_pts': array.array('d'), 'points': array.array('d'),
                       'pol_ids': array.array('i'), 'pt_ids': array.array('i'),

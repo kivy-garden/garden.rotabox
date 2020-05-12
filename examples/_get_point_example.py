@@ -38,8 +38,7 @@ class Root(Widget):
 
     def update(self, *args):
         self.red.angle -= .6
-        point = self.red.get_point(2, 2)
-        self.circle.center = point
+        self.circle.center = self.red.get_point(2, 2)
 
 if __name__ == '__main__':
     runTouchApp(Root())

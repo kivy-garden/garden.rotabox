@@ -259,11 +259,12 @@ Utility interface
 **scale_min** *NumericProperty* (0.01)
 **scale_max** *NumericProperty* (1e20)
     Optional scale restrictions.
-    
+
 **ready** *BooleanProperty* (False)
-    Useful to read in cases where the widget is stationary.
     Signifies the completion of the widget's initial preparations.
-    Also, its state changes to True after every size change or reset.
+	Useful to read in cases where the widget is stationary.
+    Also, its state changes to False when a size change or reset is triggered
+    and back to True after said size change or reset.
 
 **prepared** *BooleanProperty* (False)
     Its state change signifies a reset.
@@ -273,12 +274,11 @@ Utility interface
 
 ___________________________________________________________________________
 A Rotabox example can be seen if this module is run directly.
-
-unjuan 2019
 """
+from functools import partial
 
 __author__ = 'unjuan'
-__version__ = '0.12.1'
+__version__ = '0.13.0'
 
 __all__ = ('Rotabox', )
 
@@ -305,7 +305,10 @@ try:
         update_bounds, aniupdate_bounds, point_in_bounds, collide_bounds
     peers = get_peers()
 except ImportError:
-    print('cybounds module not found. Using internal functions instead.')
+    import logging
+    logging.log(30,  "[Rotabox     ] cybounds module NOT found. "
+                     "Using internal functions instead.\n")
+
     from array import array
     peers = {}
 
@@ -361,8 +364,8 @@ except ImportError:
     def calc_polboxes(points, plens, bbox, blefts, bbotts, brghts, btops):
         strt = 0
         for p in range(len(plens)):
-            left = 9999.
-            bottom = 9999.
+            left = float("inf")
+            bottom = float("inf")
             right = 0.
             top = 0.
             for l in range(strt, strt + plens[p] * 2, 2):
@@ -727,7 +730,7 @@ except ImportError:
             rotate(bounds['points'], bounds['length'], angle, origin[0],
                    origin[1])
 
-        bbox = array('d', [9999., 9999., 0., 0.])
+        bbox = array('d', [float("inf"), float("inf"), 0., 0.])
 
         if peers[rid]['seg']:
             calc_segboxes(bounds['points'], bounds['pol_ids'], bounds['pt_ids'],
@@ -760,7 +763,7 @@ except ImportError:
             rotate(bounds['points'], bounds['length'], angle, origin[0],
                    origin[1])
 
-        bbox = array('d', [9999., 9999., 0., 0.])
+        bbox = array('d', [float("inf"), float("inf"), 0., 0.])
 
         if peers[rid]['seg']:
             calc_segboxes(bounds['points'], bounds['pol_ids'], bounds['pt_ids'],
@@ -816,8 +819,8 @@ except ImportError:
             length = bounds['length']
         else:
             length = len(bounds['pol_lens'])
-        bounds['lefts'] = array('d', [9999.] * length)
-        bounds['botts'] = array('d', [9999.] * length)
+        bounds['lefts'] = array('d', [float("inf")] * length)
+        bounds['botts'] = array('d', [float("inf")] * length)
         bounds['rights'] = array('d', [0.] * length)
         bounds['tops'] = array('d', [0.] * length)
 
@@ -869,7 +872,7 @@ class Rotabox(Widget):
 
     __events__ = ('on_transform_with_touch', 'on_touched_to_front')
 
-    # INTERFACE ---------------------------------------------------------------
+    # -------------------------------------------------------- VISUAL INTERFACE
     '''This should be the image that any custom bounds are meant for.
     If not defined, widget will try to locate the topmost image in its tree.'''
     image = ObjectProperty()
@@ -1002,9 +1005,14 @@ class Rotabox(Widget):
         index = (sum(bounds['pol_lens'][:pol_index]) + point_index) * 2
         return list(bounds['points'][index:index + 2])
 
-    def read_bounds(self, filename):
-        '''Define [custom_bounds] using a rotaboxer's project file.
-        To work, [size] should be already defined.'''
+    def read_bounds(self, filename, delayed=False, *args):
+        '''
+        Define [custom_bounds] using a rotaboxer's project file.
+        To work, [size] should be already defined.
+        '''
+        if not self.ready:
+            Clock.schedule_once(partial(self.read_bounds, filename, True))
+            return self.custom_bounds
         try:
             with open(filename, 'r', encoding="UTF8") as proj:
                 project = json.load(proj)
@@ -1040,6 +1048,9 @@ class Rotabox(Widget):
                     self.open_bounds = opens
                 if blen == 1:
                     bounds = bounds[list(bounds.keys())[0]]
+                if delayed:
+                    self.custom_bounds = bounds
+                    return
                 return bounds
             else:
                 return self.custom_bounds
@@ -1100,7 +1111,8 @@ class Rotabox(Widget):
     pivot = ReferenceListProperty(pivot_x, pivot_y)
 
     '''Signifies the completion of the widget's initial preparations.
-    Also, its state changes to True after every size change or reset.'''
+    Also, its state changes to False when a size change or reset is triggered 
+    and back to True after said size change or reset.'''
     ready = BooleanProperty(False)
 
     '''Its state change signifies a reset. The reset completion signal, however,
@@ -1361,7 +1373,6 @@ class Rotabox(Widget):
         # if the touch isnt on the widget we do nothing
         if not self.collide_after_children:
             if not self.collide_point(x, y):
-                # return super(Rotabox, self).on_touch_down(touch)
                 return False
 
         # let the child widgets handle the event if they want
@@ -1692,46 +1703,30 @@ class Rotabox(Widget):
     allow = BooleanProperty(1)
 
 
-# ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-'''THIS IS THE END OF THE ACTUAL MODULE. THE REST, IS JUST A USAGE EXAMPLE.'''
-# vvvvvvvvvvvvvvvvvvvv (Run the module directly, to watch) vvvvvvvvvvvvvvvvvvv
-
 if __name__ == '__main__':
-    from kivy.lang import Builder
     from kivy.base import runTouchApp
-
-    Builder.load_string('''
-<Logo@Rotabox>:
-    size: 200, 130
-    draw_bounds: 1
-    custom_bounds:
-        [[(0.013, 0.985), (0.016, 0.407), (0.202, 0.696)],
-        [(0.033, 0.315), (0.212, 0.598), (0.218, 0.028)],
-        [(0.267, 0.346), (0.483, 0.000), (0.691, 0.316), (0.261, 0.975)],
-        [(0.539, 0.674), (0.73, 0.37), (0.983, 0.758)]]
-
-<Root>:
-    Logo:
-        id: left
-        pivot: 250, 300
-        single_touch_scaling: True
-        single_touch_rotation: True
-    Logo:
-        id: right
-        pivot: 600, 300
-        allow_drag: True
-        multi_touch_scaling: True
-     ''')
 
     class Root(Widget):
         def __init__(self, **kwargs):
             super(Root, self).__init__(**kwargs)
+            self.square = Rotabox(pivot=[200, 300])
+            self.square.add_widget(Image(source="examples/square.png"))
+            self.add_widget(self.square)
+
+            self.logo = Rotabox(pivot=[600, 300], custom_bounds=[
+                            [(0.013, 0.985), (0.016, 0.407), (0.202, 0.696)],
+                            [(0.033, 0.315), (0.212, 0.598), (0.218, 0.028)],
+                            [(0.267, 0.346), (0.483, 0.000), (0.691, 0.316),
+                             (0.261, 0.975)],
+                            [(0.539, 0.674), (0.73, 0.37), (0.983, 0.758)]])
+            self.logo.add_widget(Image(source="examples/kivy.png"))
+            self.add_widget(self.logo)
+
             Clock.schedule_interval(self.update, 1/60.)
 
         def update(self, *args):
-            this = self.ids.left
-            that = self.ids.right
-
+            this = self.square
+            that = self.logo
             collision = this.collide_widget(that)
 
             if collision:

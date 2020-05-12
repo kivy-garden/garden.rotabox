@@ -16,7 +16,6 @@ Builder.load_string('''
         (0.268, 0.585)]]
     Image:
         source: 'kivy.png'
-        color: .4, .3, .1, 1
 
 <Root>:
     Label:
@@ -26,8 +25,8 @@ Builder.load_string('''
         id: logo
         pivot: root.center
     Widget:
-        id: blue
-        color: .3, .3, 1, 1
+        id: red
+        color: 1, .3, .3, 1
         size: 10, 10
         canvas:
             Color:
@@ -45,8 +44,8 @@ class Root(Widget):
         Clock.schedule_interval(self.update, 1/60.)
 
     def update(self, *args):
-        self.ids.logo.angle -= .1
-        self.ids.blue.center = self.ids.logo.origin
+        self.ids.logo.angle -= .5
+        self.ids.red.center = self.ids.logo.origin
 
     def on_touch_down(self, touch):
         idx = self.idx

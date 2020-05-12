@@ -1,4 +1,4 @@
-# version 0.12.1 - kivy 1.10.0
+#:kivy 1.10.0
 #:import platform kivy.app.platform
 #:import os os
 
@@ -24,7 +24,8 @@
     Label:
         id: label
         size_hint: None, None
-        color: 1, 1, 1, 1
+        color: .3, .4, .6, 1.0
+        font_size: 15
         size: root.size
         pos: root.center
         text: root.text
@@ -59,16 +60,35 @@
     yellow_btn: yellow_btn
     magenta_btn: magenta_btn
     cyan_btn: cyan_btn
+    trace_btn: trace_btn
+    trace_box: trace_box
+    col_rel: col_rel
+    col_prmpt: col_prmpt
+    col_back: col_back
+    trace_sldr: trace_sldr
+    plus_btn: plus_btn
+    minus_btn: minus_btn
+    ok_btn: ok_btn
+    abort_btn: abort_btn
+    counter: counter
     rem_btn: rem_btn
     clear_pol: clear_pol
     open_btn: open_btn
     copy_btn: copy_btn
     scat: scat
     grid: grid
+    busy: busy
+    multi_btn: multi_btn
+    multi_rel: multi_rel
+    multi_chk: multi_chk
+    all_rel: all_rel
+    all_btn: all_btn
+    all_chk: all_chk
+    complexity: 1
     FloatLayout:
         id: grid
         size_hint: .8, .98
-        x: 156
+        x: dp(156)
         pos_hint: {'top': .99}
         opacity: 0
         canvas.before:
@@ -82,21 +102,21 @@
         Sprite:
             id: sprite
             editor: root
+            color: .29, .518, 1.0, 0.0
             opacity: 0
-            canvas.after:
+            canvas.before:
                 Color:
-                    rgba: .3, .15, .3, 1
-                Line:
-                    rectangle: self.x,self.y,self.width,self.height
-                    dash_offset: 5
-                    dash_length: 3
+                    rgba: self.color
+                Rectangle:
+                    pos: self.pos
+                    size: self.size
     FloatLayout:
         size_hint: .8, .98
-        x: 156
+        x: dp(156)
         pos_hint: {'top': .99}
         BoxLayout:
             size_hint: .99, None
-            height: 50
+            height: dp(50)
             pos_hint: {'x': .01, 'top': 1}
             Label:
                 id: board2
@@ -108,7 +128,7 @@
                 text: 'Open an image file or a previous project...'
         BoxLayout:
             size_hint: 1, None
-            height: 50
+            height: dp(50)
             pos_hint: {'x': .01, 'y': .02}
             Label:
                 id: board3
@@ -123,7 +143,7 @@
                     size_hint: 1, .5
                 Label:
                     id: board4
-                    pos_hint: {'right': .97, 'y': .01}
+                    pos_hint: {'right': .97}
                     color: 1, 1, 1, .55
                     text_size: self.width, None
                     height: self.texture_size[1]
@@ -135,54 +155,56 @@
             Color:
                 rgba: 0, 0, 0, .8
             Rectangle:
-                pos: self.x + 15, self.y
+                pos: self.x + dp(15), self.y
                 size: self.size
         opacity: 0
     BoxLayout:
         size_hint: None, None
-        size: 148, 590
-        x: 5
-        top: root.height - 5
+        size: dp(148), dp(590)
+        x: dp(5)
+        top: root.height - dp(5)
         orientation: 'vertical'
+        spacing: dp(2)
         Button:
             id: load_btn
             group: 'utils'
             background_color: .13, .13, .2, 1
             text: 'Open'
             on_release: root.load_dialog()
-        Widget:
-            size_hint: 1, .05
         Label:
             id: board1
             background_color: .9, 1, .9, .05
             color: 1, 1, 1, .6
             halign: 'center'
             text: ''
-        Widget:
-            size_hint: 1, .05
         BoxLayout:
+            spacing: dp(2)
             Button:
                 id: prev
                 group: 'nav'
                 background_color: .13, .13, .2, 1
                 font_name: 'rotaboxer/guifont'
-                font_size: '20sp'
+                font_size: sp(20)
                 text: 'e'
                 on_release: root.navigate('<')
                 disabled: True
-            Widget:
-                size_hint: .005, 1
             Button:
                 id: next
                 group: 'nav'
                 background_color: .13, .13, .2, 1
                 font_name: 'rotaboxer/guifont'
-                font_size: '20sp'
+                font_size: sp(20)
                 text: 'r'
                 on_release: root.navigate('>')
                 disabled: True
-        Widget:
-            size_hint: 1, .05
+        Button:
+            id: trace_btn
+            group: 'edit'
+            background_color: .13, .13, .2, 1
+            text: 'Auto bounds'
+            on_release:
+                root.start_trace()
+            disabled: True
         Button:
             id: rem_btn
             group: 'edit'
@@ -190,8 +212,6 @@
             text: 'Delete point'
             on_release: root.remove_point()
             disabled: True
-        Widget:
-            size_hint: 1, .05
         Button:
             id: clear_pol
             group: 'edit'
@@ -199,8 +219,6 @@
             text: 'Delete polygon'
             on_release: root.remove_polygon()
             disabled: True
-        Widget:
-            size_hint: 1, .05
         Button:
             id: open_btn
             group: 'edit'
@@ -208,8 +226,6 @@
             text: 'Open polygon'
             on_release: root.open_polygon()
             disabled: True
-        Widget:
-            size_hint: 1, .05
         Button:
             id: cancel_btn
             group: 'edit'
@@ -221,31 +237,26 @@
                 root.to_transfer)); root.empty_cut(); root.save_state(
                 'Cancelled transfer')
             disabled: True
-        Widget:
-            size_hint: 1, .05
         BoxLayout:
+            spacing: dp(2)
             Button:
                 id: undo
                 group: 'edit'
                 background_color: .13, .13, .2, 1
                 font_name: 'rotaboxer/guifont'
-                font_size: '22sp'
+                font_size: sp(22)
                 text: 'q'
                 on_release: root.change_state('undo')
                 disabled: True
-            Widget:
-                size_hint: .005, 1
             Button:
                 id: redo
                 group: 'edit'
                 background_color: .13, .13, .2, 1
                 font_name: 'rotaboxer/guifont'
-                font_size: '22sp'
+                font_size: sp(22)
                 text: 'w'
                 on_release: root.change_state('redo')
                 disabled: True
-        Widget:
-            size_hint: 1, .05
         ToggleButton:
             id: index_btn
             group: 'edit'
@@ -259,8 +270,8 @@
             size_hint: 1, .05
         BoxLayout:
             size_hint: 1, .3
-            padding: 1.5, 0, 1.5, 0
-            spacing: 3
+            padding: dp(1.5), dp(2), dp(1.5), dp(0)
+            spacing: dp(2)
             Button:
                 id: blue_btn
                 group: 'visual'
@@ -307,7 +318,6 @@
             id: num_area
             Button:
                 id: num_btn
-                background_color: 0, 0, 0, 1
                 text: '     Numbers'
             CheckBox:
                 id: num_box
@@ -319,6 +329,7 @@
                     else: root.nums_on = False
                 active: True
         BoxLayout:
+            spacing: dp(2)
             Button:
                 id: minus
                 group: 'utils'
@@ -327,19 +338,15 @@
                 text: 's'
                 on_release: root.zoom('out')
                 disabled: True
-            Widget:
-                size_hint: .005, 1
             Button:
                 id: plus
                 group: 'utils'
                 background_color: .13, .13, .2, 1
                 font_name: 'rotaboxer/guifont'
-                font_size: '25sp'
+                font_size: sp(25)
                 text: 's'
                 on_release: root.zoom('in')
                 disabled: True
-        Widget:
-            size_hint: 1, .05
         Button:
             id: copy_btn
             group: 'utils'
@@ -347,8 +354,6 @@
             background_color: .13, .13, .2, 1
             on_release: root.check_out()
             disabled: True
-        Widget:
-            size_hint: 1, .05
         RelativeLayout:
             id: save
             Button:
@@ -368,8 +373,6 @@
                 on_active:
                     if self.active: save_btn.text = 'Save      '
                     else: save_btn.text = 'Save as        '
-        Widget:
-            size_hint: 1, .05
         Button:
             id: help_btn
             group: 'utils'
@@ -378,10 +381,11 @@
             on_release: root.select_help()
     BoxLayout:
         id: shortcuts
-        size_hint: None, None
-        size: 665, 600
+        size_hint_x: .8 if root.width < 1000 else .85 if root.width < 1500 else .9
+        size_hint_y: None
+        height: dp(600)
         top: root.height
-        x: 140
+        x: root.x + dp(156)
         opacity: 0
         BoxLayout:
             orientation: 'vertical'
@@ -391,6 +395,8 @@
                 text: ''
             KeyLabel:
                 text: ': [size=19][color=#ffffff][<][/color][/size] / [size=19][color=#ffffff][>][/color][/size].  [size=19][color=#ffffff][Alt +][/color][/size] Clone to next frame'
+            KeyLabel:
+                text: ': [size=19][color=#ffffff][B][/color][/size]'
             KeyLabel:
                 text: ': [size=19][color=#ffffff][Del][/color][/size]'
             KeyLabel:
@@ -411,30 +417,243 @@
             KeyLabel:
                 text: ': [size=19][color=#ffffff][-][/color][/size] / [size=19][color=#ffffff][+][/color][/size]'
             KeyLabel:
-                text: ': [size=19][color=#ffffff][E][/color][/size]. In resulting dialog [size=19][color=#ffffff][P][/color][/size] / [size=19][color=#ffffff][V][/color][/size]'
+                text: ': [size=19][color=#ffffff][E][/color][/size]. In resulting dialog [size=19][color=#ffffff][P][/color][/size] / [size=19][color=#ffffff][K][/color][/size]'
             KeyLabel:
                 text: ': [size=19][color=#ffffff][S][/color][/size].  [size=19][color=#ffffff][Ctrl + S][/color][/size] Skip dialog.'
             KeyLabel:
-                text: ': [size=19][color=#ffffff][F1][/color][/size]. In resulting dialog [size=19][color=#ffffff][H][/color][/size] / [size=19][color=#ffffff][K][/color][/size]'
+                text: ': [size=19][color=#ffffff][F1][/color][/size]. In resulting dialog [size=19][color=#ffffff][H][/color][/size] / [size=19][color=#ffffff][S][/color][/size]'
+        Label:
+            font_size: sp(22)
+            color: .5, .8, 1, 1
+            text: 'Keyboard Shortcuts'
+            text_size: dp(300), None
+            valign: 'top'
+            markup: True
         BoxLayout:
             orientation: 'vertical'
-            Label:
+            Widget:
                 size_hint: 1, .2
-                font_size: 22
-                text: 'Keyboard Shortcuts'
-                text_size: 300, None
-                markup: True
             KeyLabel:
                 id: key_lbl
                 halign: 'right'
-                line_height: 1.05
+                pos_hint: {'right': .95}
+                line_height: dp(1.05)
                 text: ''
+    TraceBox:
+        id: trace_box
+        size_hint: None, None
+        size: dp(148), dp(590)
+        x: dp(-148)
+        top: root.height - dp(5)
+        orientation: 'vertical'
+        spacing: dp(2)
+        thres: dp(1.0)
+        canvas.before:
+            Color:
+                rgba: 0, 0, 0, 1
+            Rectangle:
+                pos: self.pos
+                size: self.size
+        RelativeLayout:
+            id: col_rel
+            group: 'trace'
+            Widget:
+                id: col_back
+                color: 0., 0., 0., 0.
+                canvas.before:
+                    Color:
+                        rgba: self.color
+                    Rectangle:
+                        pos: self.pos
+                        size: self.size
+                opacity: 0
+            Button:
+                id: col_prmpt
+                group: 'trace'
+                text: 'Matte color'
+                on_release:
+                    if not busy.opacity: root.open_color()
+                disabled: True
+        RelativeLayout:
+            id: multi_rel
+            Button:
+                id: multi_btn
+                group: 'trace'
+                text: 'All shapes      '
+            CheckBox:
+                id: multi_chk
+                size_hint_x: 1.7
+                pos_hint: {'center_x': .85, 'center_y': .5}
+                on_touch_down:
+                    if busy.opacity: self.active = not self.active
+                on_active:
+                    if self.active and not busy.opacity: root.multi_shape = True; root.retrace()
+                    elif not busy.opacity and trace_box.x > 0: root.multi_shape = False; root.retrace()
+        Label:
+            id: counter
+        Widget:
+            size_hint: 1, .1
+        BoxLayout:
+            spacing: dp(2)
+            Button:
+                id: minus_btn
+                group: 'trace'
+                background_color: .13, .13, .2, 1
+                font_size: sp(24)
+                text: '+'
+                on_release:
+                    if not busy.opacity: trace_box.thres -= dp(0.1)
+                    if trace_box.thres < dp(0.0): trace_box.thres = dp(0.0)
+                    if not busy.opacity: root.filter_border(trace_box.thres)
+                disabled: True
+            Button:
+                id: plus_btn
+                group: 'trace'
+                background_color: .13, .13, .2, 1
+                font_size: sp(24)
+                text: '-'
+                on_release:
+                    if not busy.opacity: trace_box.thres += dp(0.1)
+                    if trace_box.thres > dp(root.complexity): trace_box.thres = dp(root.complexity)
+                    if not busy.opacity: root.filter_border(trace_box.thres)
+                disabled: True
+        Slider:
+            id: trace_sldr
+            size_hint: 1, 7
+            group: 'trace'
+            orientation: 'vertical'
+            min: dp(-root.complexity)
+            max: dp(0.0)
+            step: 1
+            value: trace_box.thres * -1
+            on_value:
+                if not busy.opacity and self.value < dp(0.0): trace_box.thres = self.value * -1
+                elif not busy.opacity: trace_box.thres = self.value
+                if not busy.opacity and trace_box.x > 0: root.filter_border(trace_box.thres)
+        Widget:
+        RelativeLayout:
+            id: all_rel
+            Button:
+                id: all_btn
+                group: 'trace'
+                text: 'All frames      '
+                disabled: True
+            CheckBox:
+                id: all_chk
+                size_hint_x: 1.7
+                pos_hint: {'center_x': .85, 'center_y': .5}
+                on_active:
+                    if self.active and not busy.opacity: root.all_frames = True
+                    elif not busy.opacity: root.all_frames = False
+                disabled: True
+        Button:
+            id: ok_btn
+            group: 'trace'
+            background_color: .13, .13, .2, 1
+            text: 'Accept'
+            on_release: if not busy.opacity: root.accept_points()
+            disabled: True
+        Button:
+            id: abort_btn
+            group: 'trace'
+            background_color: .13, .13, .2, 1
+            text: 'Cancel'
+            on_release: if not busy.opacity: root.cancel_trace()
+            disabled: True
+    Image:
+        id: busy
+        size_hint: None, None
+        size: dp(100), dp(100)
+        pos_hint: {'center_x': .6, 'center_y': .5}
+        source: 'rotaboxer/wait_ani.zip'
+        anim_delay: .06
+        opacity: 0
 
 <KeyLabel@Label>:
-    font_size: 17
-    text_size: 300, None
+    size_hint: None, 1
+    width: dp(300)
+    font_size: sp(17)
+    text_size: dp(300), None
     color: 0.565, 0.565, 0.565
     markup: True
+
+<ColorDialog>:
+    clr: clr
+    matte: app.root.matte
+    orientation: 'vertical'
+    Widget:
+        size_hint: 1, .2
+    Label:
+        halign: 'center'
+        font_size: sp(17)
+        text:
+            ("A background color must be used to trace the image.\n"
+            "The color can be adjusted below,\n"
+            "to be clearly distinguishable from the image's outline.")
+    Widget:
+        size_hint: 1, .1
+    BoxLayout:
+        size_hint: 1, .4
+        padding: dp(46), dp(8), dp(56), dp(8)
+        spacing: dp(5)
+        Label:
+            size_hint: .3, 1
+            text: 'R:'
+        TextInput:
+            id: tti1
+            text: str(root.matte[0])
+            on_text:
+                clr.color = float(tti1.text), float(tti2.text), float(tti3.text), 1.0
+            multiline: False
+        Label:
+            size_hint: .7, 1
+            text: '    G:'
+        TextInput:
+            id: tti2
+            text: str(root.matte[1])
+            on_text:
+                clr.color = float(tti1.text), float(tti2.text), float(tti3.text), 1.0
+            multiline: False
+        Label:
+            size_hint: .7, 1
+            text: '    B:'
+        TextInput:
+            id: tti3
+            text: str(root.matte[2])
+            on_text:
+                clr.color = float(tti1.text), float(tti2.text), float(tti3.text), 1.0
+            multiline: False
+        Widget:
+            size_hint: .4, 1
+        Widget:
+            id: clr
+            size_hint: 1.3, 1
+            color: .29, .518, 1.0, 1.0
+            canvas.before:
+                Color:
+                    rgba: self.color
+                Rectangle:
+                    pos: self.pos
+                    size: self.size
+    Widget:
+        size_hint: 1, .2
+
+    BoxLayout:
+        size_hint: 1, .4
+        Button:
+            background_color: .13, .13, .2, 1
+            text: 'Cancel'
+            on_release: app.root.dismiss_popup()
+
+        Button:
+            background_color: .13, .13, .2, 1
+            text: 'OK'
+            on_release:
+                app.root.matte = clr.color
+                app.root.col_prmpt.color = clr.color
+                app.root.sprite.color = clr.color
+                app.root.make_image()
+
 
 <Button>:
     always_release: False
@@ -474,6 +693,7 @@
             size_hint_x: 10
             filters: root.file_types
             path: './' if platform == 'win' else '/sdcard'
+            on_submit: root.load(filechooser.path, filechooser.selection)
     BoxLayout:
         size_hint_y: None
         height: dp(40)
@@ -529,6 +749,8 @@
                 if self.selection: \
                 text_input.text = os.path.split(self.selection[0])[1]
                 else: text_input.text = ''
+            on_submit:
+                root.save(filechooser.path, text_input.text) if root.w_ok else None
     TextInput:
         id: text_input
         size_hint_y: None
@@ -548,7 +770,8 @@
             id: save_btn
             text: "Save"
             background_color: .13, .13, .2, 1
-            on_release: root.save(filechooser.path, text_input.text) if root.w_ok else None
+            on_release:
+                root.save(filechooser.path, text_input.text) if root.w_ok else None
 
 <ScrollLabel>
     label: label

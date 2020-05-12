@@ -1,11 +1,9 @@
 
 # Rotabox
-*version 0.12.1 (kivy 1.10.0)*
+*version 0.13.0 (kivy 1.10.0)*
 #### A kivy widget with revolving collision detection, custom bounds and multitouch interactivity.
 
-![example](images/example.png)
-
-*An example can be seen if rotabox.py is run directly.*
+![example](examples/example.gif)
 
 Rotabox is a *kivy widget* with customizable 2D bounds that follow its rotation.  
 The users can shape their own, specific bounds, to fit an image (or a series of images in an animation), using  a visual editor *(See Rotaboxer below)*.
@@ -72,9 +70,9 @@ To use Rotabox, just include *rotabox.py* in your project files.
 ```python
     from rotabox import Rotabox
     ...
-	    rb = Rotabox()
-	    rb.add_widget(Image(source='img.png'))
-	    self.add_widget(rb)
+	rb = Rotabox()
+	rb.add_widget(Image(source='img.png'))
+	self.add_widget(rb)
 ```
 The instance's default bounds will be a rectangle, the size of the image, that rotates with it.
 
@@ -98,11 +96,11 @@ The instance's default bounds will be a rectangle, the size of the image, that r
 ## Customizing the Collidable Area
 
 > **Rotaboxer** Visual editor.
->  An easy way to define the *custom_bounds* of Rotabox. 
->  To use it, run *rotaboxer.py* directly. It can be found in the *visual_editor* folder.
->  Open a *.png* image or an *.atlas* file in the editor, draw bounds for it and export the resulting code to clipboard, to use in a Rotabox widget.
+>  An easy way to define the *custom_bounds* of Rotabox.  
+>  To use it, run *rotaboxer.py* directly. It can be found in the *visual_editor* folder.  
+>  Open a *.png* image or an *.atlas* file, let the editor draw bounds for it while you control the accuracy/complexity, inspect for a final touch and export the resulting code to clipboard, to paste in a Rotabox widget.
 > 
-> ![editor](images/editor.png)
+> ![editor](examples/editor.gif)
 
 **custom_bounds** *ObjectProperty* (`[[(0, 0), (1, 0), (1, 1), (0, 1)]]`)  
  This is where the custom bounds are being defined.  
@@ -116,12 +114,12 @@ The instance's default bounds will be a rectangle, the size of the image, that r
  Here's another example with more polygons:
 
 ```python
-self.custom_bounds = [[(0.013, 0.985), (0.022, 0.349),
-                       (0.213, 0.028), (0.217, 0.681)],
-                      [(0.267, 0.346), (0.483, -0.005),
-                        (0.691, 0.316), (0.261, 0.975)],
-                      [(0.539, 0.674), (0.73, 0.37),
-                        (0.983, 0.758)]]
+rb.custom_bounds = [[(0.013, 0.985), (0.022, 0.349),
+                     (0.213, 0.028), (0.217, 0.681)],
+                    [(0.267, 0.346), (0.483, -0.005),
+                      (0.691, 0.316), (0.261, 0.975)],
+                    [(0.539, 0.674), (0.73, 0.37),
+                      (0.983, 0.758)]]
 ```
 
 *custom_bounds* can also be a *dictionary*, in case of animated bounds (different bounds for different frames of an animation sequence in an *.atlas* file), where the *keys* correspond to the frame names in the *.atlas* file and each *item* is a *list* of one or more polygons' data like the above.
@@ -129,16 +127,16 @@ self.custom_bounds = [[(0.013, 0.985), (0.022, 0.349),
 Here's an example of such a *dictionary*:
 
 ```python
-self.custom_bounds = {'00': [[(0.201, 0.803), (0.092, 0.491),
-                              (0.219, 0.184), (0.526, 0.064)],
-                             [(0.419, 0.095), (0.595, 0.088),
-                               (0.644, 0.493)]],
-                      '01': [[(0.357, 0.902), (0.17, 0.65),
-                              (0.184, 0.337), (0.343, 0.095),
-                              (0.644, 0.098)]],
-                      '02': [[(...
-                               ...
-                               ... etc ]]}
+rb.custom_bounds = {'00': [[(0.201, 0.803), (0.092, 0.491),
+                            (0.219, 0.184), (0.526, 0.064)],
+                           [(0.419, 0.095), (0.595, 0.088),
+                             (0.644, 0.493)]],
+                    '01': [[(0.357, 0.902), (0.17, 0.65),
+                            (0.184, 0.337), (0.343, 0.095),
+                            (0.644, 0.098)]],
+                    '02': [[(...
+                             ...
+                             ... etc ]]}
 ```
 
 **segment_mode** *BooleanProperty* (True):
@@ -223,8 +221,6 @@ Most of it is familiar from the Scatter widget.
 **scale_max** *NumericProperty* (1e20)
  Optional scale restrictions.
 
-
-_______
+_
 > **Note:** *Rotabox* is being developed on Windows and hasn't really been tested on other platforms.
 
-*unjuan 2019*

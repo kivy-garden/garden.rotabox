@@ -6,6 +6,10 @@ from setuptools import Extension
 
 setup(ext_modules=[Extension("cybounds", ["cybounds.c"])])
 
+### In case of a modified 'cybounds.pyx.', use this 'setup' instead.#
+# from Cython.Build import cythonize#
+# setup(name='cybounds', ext_modules=cythonize('cybounds.pyx', annotate=True))
+###
 
 # COMMANDS
 #

@@ -2,9 +2,11 @@
 To compile "cybounds.so" (or "cybounds.pyd" in windows) use the commands below (locally, where "cybounds.c" and "setup.py" files are).
 "setuptools" python package is required.
 
-$ python setup.py build_ext --inplace (linux/macos)
+in linux/macos
+$ python setup.py build_ext --inplace
 
-$ python setup.py build_ext -i --compiler=msvc (windows)
+in windows
+$ python setup.py build_ext -i --compiler=msvc
 
 If in windows, "Microsoft Visual C++ 9.0 Compiler for Python 2.7" must be in the system and the "setuptools" version must be at least 6.0.
 A standalone version of the compiler can be found here: http://aka.ms/vcpython27

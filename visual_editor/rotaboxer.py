@@ -8,13 +8,13 @@ ______________________________________________________________________________
     Rotaboxer is an editing tool for the Rotabox bounds*.
     With an image as input, the user can visually shape specific colliding
     bounds for it.
-    The result is the code (a list or a dictionary) to be used by a Rotabox
-    widget, in a kivy project.
+    The result is the code (a list or a dictionary) on clipboard to paste in
+    a Rotabox widget, in a kivy project.
     Animated bounds are also supported, with the use of atlases.
 
 ____________________ RUN THE MODULE DIRECTLY TO USE ___________________________
 
-unjuan 2019
+unjuan 2020
 '''
 
 from __future__ import absolute_import, division, unicode_literals, print_function
@@ -23,7 +23,7 @@ import json, os, sys
 PYTHON2 = False
 if sys.version_info < (3, 0):  # Python 2.x
     from codecs import open
-    range = range
+    range = xrange
     PYTHON2 = True
 from future.utils import iteritems, iterkeys, itervalues
 
@@ -33,22 +33,22 @@ app_config = {}
 try:
     with open('rotaboxer/settings.json', 'r', encoding="UTF8") as app_settings:
         app_config = json.load(app_settings)
-except (IOError, KeyError) as err:
-    print('on loading settings: ', err)
-
-from kivy.config import Config
-Config.set('input', 'mouse', 'mouse,disable_multitouch')
-Config.set('graphics', 'width', app_config.get('width', 800))
-Config.set('graphics', 'height', app_config.get('height', 600))
-Config.set('graphics', 'position', 'custom')
-Config.set('graphics', 'top', app_config.get('top', 200))
-Config.set('graphics', 'left', app_config.get('left', 400))
+except (IOError, KeyError):
+    pass
+else:
+    from kivy.config import Config
+    Config.set('input', 'mouse', 'mouse,disable_multitouch')
+    Config.set('graphics', 'width', app_config.get('width'))
+    Config.set('graphics', 'height', app_config.get('height'))
+    Config.set('graphics', 'position', 'custom')
+    Config.set('graphics', 'top', app_config.get('top'))
+    Config.set('graphics', 'left', app_config.get('left'))
 from kivy.app import App
 from kivy.lang import Builder
 from kivy.base import EventLoop
 from kivy.uix.checkbox import CheckBox
 from kivy.uix.scatter import ScatterPlane
-from kivy.clock import Clock
+from kivy.clock import Clock, mainthread
 from kivy.core.window import Window
 from kivy.uix.togglebutton import ToggleButton
 from kivy.uix.scrollview import ScrollView
@@ -62,32 +62,35 @@ from kivy.graphics.vertex_instructions import Line
 from kivy.uix.popup import Popup
 from kivy.app import platform
 from kivy.properties import ObjectProperty, ListProperty, StringProperty, \
-    ReferenceListProperty, AliasProperty, BooleanProperty
+    ReferenceListProperty, AliasProperty, BooleanProperty, NumericProperty
 from kivy.uix.filechooser import FileChooserListView
 from kivy.uix.floatlayout import FloatLayout
 from kivy.graphics.instructions import InstructionGroup
+from kivy.uix.slider import Slider
+from kivy.metrics import dp, sp
 from collections import deque
 from functools import partial
+from threading import Thread
 import re
 import traceback
 import time
-
+import math
 
 __author__ = 'unjuan'
-__version__ = '0.12.1'
+__version__ = '0.13.0'
 
-
-class Sprite(BoxLayout):
-    def __init__(self, **kwargs):
-        super(Sprite, self).__init__(**kwargs)
-        self.image = None
-
-    def on_size(self, *args):
-        self.x -= self.size[0] * .5
-        self.y -= self.size[1] * .5
+'''
+The border length of the largest shape that would be considered as noice,
+in make_border and link_points methods.'''
+MIN_SHAPE = 5
+'''
+Number of iterations in the filter_border method.
+'''
+FILTER_PASSES = 10
 
 
 class Point(ToggleButton):
+    # noinspection PyArgumentList
     pivot_bond = ListProperty([.5, .5])
 
     def get_pivot_x(self):
@@ -113,6 +116,7 @@ class Point(ToggleButton):
                 self.piv_y = value
     pivot_y = AliasProperty(get_pivot_y, set_pivot_y,
                             bind=('y', 'height', 'pivot_bond'))
+    '''Rotabox's pivot.'''
     pivot = ReferenceListProperty(pivot_x, pivot_y)
 
     def get_origin(self):
@@ -124,10 +128,37 @@ class Point(ToggleButton):
                            (pivot[1] - self.y) / float(self.height))
         self.pos = (self.x - (pivot[0] - point[0]),
                     self.y - (pivot[1] - point[1]))
+
+    '''Rotabox's origin.'''
     origin = AliasProperty(get_origin, set_origin)
 
-    multi_selected = BooleanProperty(False)
+    # Initial widget size. Used for calculating the widget's scale.
+    # noinspection PyArgumentList
+    original_size = ListProperty([1, 1])
 
+    def get_scale(self):
+        return float(self.width) / self.original_size[0]
+
+    def set_scale(self, amount):
+        if amount < self.scale_min:
+            amount = self.scale_min
+        elif amount > self.scale_max:
+            amount = self.scale_max
+
+        pivot = self.pivot[:]
+        self.size = (amount * self.original_size[0],
+                     amount * self.original_size[1])
+        self.pivot = pivot
+
+    '''Rotabox's scale.'''
+    scale = AliasProperty(get_scale, set_scale, bind=('width', 'height',
+                                                      'original_size'))
+    '''Minimum scale allowed.'''
+    scale_min = NumericProperty(0.1)
+
+    '''Maximum scale allowed.'''
+    scale_max = NumericProperty(3)
+    multi_selected = BooleanProperty(False)
     busy = False
     norm_fill_color = .5, 0, 0, 0
     down_fill_color = .5, 0, 0, .5
@@ -140,6 +171,8 @@ class Point(ToggleButton):
         self.piv_x = self.piv_y = 0
         super(Point, self).__init__(**kwargs)
         self.size = mag * 6, mag * 6
+        self.original_size = self.size
+        self.scale = 1.5 / self.root.scat.scale + .1
         self.grabbed = False
         self.popup = None
         self.deselect = False
@@ -155,7 +188,7 @@ class Point(ToggleButton):
     def on_pos(self, *args):
         try:
             self.label.color = self.adjust_color(self.right, self.top)
-        except AttributeError as er:
+        except AttributeError:
             pass
 
     def on_state(self, *args):
@@ -185,7 +218,7 @@ class Point(ToggleButton):
                 or self.root.pol != self.pol['key']):
             self.root.pol = str(self.pol['key'])
             self.root.index = self.pol['btn_points'].index(self)
-            self.root.save_state(switch=1)
+            self.root.save_state(motion_end=1)
             if self.root.to_transfer:
                 return
             if not self.root.ordered:
@@ -221,7 +254,7 @@ class Point(ToggleButton):
                                  + '_'
                                  + str((round(self.center_x),
                                         round(self.center_y))),
-                                 move=1)
+                                 motion=1)
             self.grabbed = False
             Point.busy = False
             self.root.draw()
@@ -237,7 +270,7 @@ class Point(ToggleButton):
             x, y = x - image.x, y - image.y
             try:
                 back = image._coreimage.read_pixel(x, image.height - y - 1)
-            except (AttributeError, IndexError) as er:
+            except (AttributeError, IndexError):
                 pass
             else:
                 if back[-1]:
@@ -253,7 +286,7 @@ class Point(ToggleButton):
                         color[1] -= d
                         color[2] -= d
                     return color
-        return 1, 1, 1, 1
+        return .4, .5, .7, 1.0
 
     def pop_up(self, *args):
         if self.popup:
@@ -282,7 +315,7 @@ class Point(ToggleButton):
 
         self.popup = AutoPopup(content=point_popup,
                                size_hint=(None, None),
-                               size=(240, 200))
+                               size=(dp(240), dp(200)))
         self.popup.title = "Point menu:"
         self.popup.open()
 
@@ -327,8 +360,21 @@ class Editor(FloatLayout):
         self.ctrl = False
         self.to_transfer = []
         self.nums_on = True
-        self.default_color = [.29, .518, 1, 1]
+        self.default_color = .29, .518, 1, 1
         self.last_dir = app_config.get('last dir', './')
+
+        # for tracing
+        self.simple_border = []
+        self.simplest_border = []
+        self.trace_mode = False
+        self.temp_img = ''
+        self.orig_source = None
+        self.matte = 1, .5, 1, 1
+        self.multi_shape = False
+        self.all_frames = False
+        self.all_go = False
+        self.done = 0
+
         EventLoop.window.bind(on_keyboard=self.on_key,
                               on_key_up=self.on_key_up)
         Clock.schedule_once(self.load_dialog)
@@ -341,7 +387,7 @@ class Editor(FloatLayout):
         else:
             Window.bind(on_request_close=self.exit_check)
 
-    # ------------------------ EDITOR -----------------------
+# ,,,------------------------ EDITOR -----------------------
     def add_point(self, x=None, y=None, state=True):
         frame = self.rec[self.frame]
         if self.pol is not None:
@@ -375,8 +421,8 @@ class Editor(FloatLayout):
             pol['btn_points'] = [Point(pol, self, self.mag, pos=(x, y),
                                        text=str(0))]
             pol['color'] = self.default_color
-            pol['label'] = Label(size=(50, 50), font_size='35sp', bold=True,
-                                 color=pol['color'][:-1] + [.3])
+            pol['label'] = Label(size=(dp(50), dp(50)), font_size='35sp', bold=True,
+                                 color=pol['color'][:-1] + (.3,))
             self.scat.add_widget(pol['label'])
             self.scat.add_widget(pol['btn_points'][-1])
             self.index = 0
@@ -468,7 +514,7 @@ class Editor(FloatLayout):
             self.lasts = self.frame, self.pol, self.index
             self.pol = None
             self.index = None
-            self.save_state(switch=1)
+            self.save_state(motion_end=1)
             self.draw()
 
     def pick_point(self, point, *args):
@@ -549,8 +595,8 @@ class Editor(FloatLayout):
             pol['open'] = False
             pol['btn_points'] = []
             pol['color'] = self.default_color
-            pol['label'] = Label(size=(50, 50), font_size='35sp', bold=True,
-                                 color=pol['color'][:-1] + [.3])
+            pol['label'] = Label(size=(dp(50), dp(50)), font_size='35sp', bold=True,
+                                 color=pol['color'][:-1] + (.3,))
             self.scat.add_widget(pol['label'])
 
             for p, plg in sorted(iteritems(ptis), reverse=True):
@@ -577,6 +623,7 @@ class Editor(FloatLayout):
                 i += 1
             self.pol = str(pol['key'])
             self.index = i - 1
+            # noinspection PyUnresolvedReferences
             pol['btn_points'][self.index].state = 'down'
             msg = 'New polygon ({}) of {} points'.format(self.pol, len(ordered))
         self.empty_cut()
@@ -595,12 +642,11 @@ class Editor(FloatLayout):
                 print('on empty_cut: ', er)
         del self.to_transfer[:]
 
-    def save_state(self, msg='__state', move=0, switch=0):
-        if msg != '__state' \
-                and self.history \
-                and self.history[self.state][0] == msg:
+    def save_state(self, msg='__state', motion=0, motion_end=0):
+        if msg != '__state' and self.history \
+                  and self.history[self.state][0] == msg:
             return
-        if not move:
+        if not motion:
             if self.moves:
                 args = self.motion_args[-1].split('_')
                 last = self.moves[-1][:]
@@ -611,7 +657,7 @@ class Editor(FloatLayout):
                 self.history.append(last)
                 self.changes += 1
                 del self.moves[:]
-        if not switch:
+        if not motion_end:
             if self.state != -1:
                 index = self.state + len(self.history)
                 while len(self.history) > index + 1:
@@ -622,7 +668,7 @@ class Editor(FloatLayout):
                        'to_transfer': self.to_transfer[:]}
             snapshot = msg, self.store(project)
 
-            if move:
+            if motion:
                 self.motion_args.append(snapshot[0])
                 self.moves.append(snapshot)
             else:
@@ -645,32 +691,35 @@ class Editor(FloatLayout):
             self.changes -= 1
 
         if -len(self.history) <= self.state < 0:
-            self.clear_points()
-            state = self.history[self.state][1]
-            if self.atlas_source:
-                self.frame = state['frame']
-                self.sprite.image.source = ('atlas://' + self.filename + '/'
-                                                       + self.frame)
-                self.board1.text = (self.image + '\n('
-                                    + str(self.keys.index(self.frame) + 1)
-                                    + '  of  '
-                                    + str(len(self.keys)) + '  frames)')
-            self.pol = state['pol']
-            self.index = state['index']
-            self.to_transfer = state['to_transfer'][:]
-            self.restore(state, __version__)
-            try:
-                self.rec[self.frame][self.pol][
-                    'btn_points'][self.index].state = 'down'
-            except (KeyError, IndexError) as er:
-                print('on change_state: ', er)
+            self.busy.opacity = 1
+            Clock.schedule_once(self.build_state, .1)
 
-            for entry in self.to_transfer:
-                pol = self.rec[self.frame][entry[0]]
-                cutpoint = pol['btn_points'][entry[1]]
-                cutpoint.multi_selected = True
-            self.update()
-            self.draw()
+    def build_state(self, *args):
+        self.clear_points()
+        state = self.history[self.state][1]
+        if self.atlas_source:
+            self.frame = state['frame']
+            self.sprite.image.source = (
+                        'atlas://' + self.filename + '/' + self.frame)
+            self.board1.text = (self.image + '\n(' + str(
+                self.keys.index(self.frame) + 1) + '  of  ' + str(
+                len(self.keys)) + '  frames)')
+        self.pol = state['pol']
+        self.index = state['index']
+        self.to_transfer = state['to_transfer'][:]
+        self.restore(state, __version__)
+        try:
+            self.rec[self.frame][self.pol]['btn_points'][
+                self.index].state = 'down'
+        except (KeyError, IndexError):
+            pass
+        for entry in self.to_transfer:
+            pol = self.rec[self.frame][entry[0]]
+            cutpoint = pol['btn_points'][entry[1]]
+            cutpoint.multi_selected = True
+        self.update()
+        self.draw()
+        self.busy.opacity = 0
 
     def navigate(self, btn):
         cf = self.frame
@@ -714,8 +763,8 @@ class Editor(FloatLayout):
                     v2['number'] = v['number']
                     v2['open'] = v['open']
                     v2['color'] = v['color'][:]
-                    v2['label'] = Label(size=(50, 50), font_size='35sp',
-                                        bold=True, color=v2['color'][:-1] + [.3])
+                    v2['label'] = Label(size=(dp(50), dp(50)), font_size='35sp',
+                                        bold=True, color=v2['color'][:-1] + (.3,))
                     self.scat.add_widget(v2['label'])
                 if self.rec[cf]:
                     self.save_state('Cloned points of frame {} to frame {}'
@@ -729,13 +778,24 @@ class Editor(FloatLayout):
 
             self.pol = None
             self.index = None
+            self.adjust_points()
+            self.update()
             self.draw()
             self.board1.text = (self.image + '\n('
                                 + str(self.keys.index(self.frame) + 1)
                                 + '  of  '
                                 + str(len(self.keys)) + '  frames)')
 
-    # ------------------------ INPUT -----------------------
+    def clear_points(self):
+        for frame in itervalues(self.rec):
+            for pol in itervalues(frame):
+                while len(pol['btn_points']):
+                    self.scat.remove_widget(pol['btn_points'].pop())
+                self.scat.remove_widget(pol['label'])
+            frame.clear()
+        self.rec.clear()
+
+# ,,,------------------------ INPUT -----------------------
     def load_dialog(self, *args):
         """ Shows the 'Import/Open' dialog."""
         if self.popup:
@@ -757,7 +817,6 @@ class Editor(FloatLayout):
         self.popup = AutoPopup()
         self.popup.content = content
         self.popup.size_hint = .6, .9
-        self.popup.color = .4, .3, .2, 1
         self.popup.title = 'Open image, atlas or project file:'
         self.popup.auto_dismiss = False
         self.popup.open()
@@ -778,10 +837,26 @@ class Editor(FloatLayout):
             self.changes = 0
             self.atlas_source = ''
             self.animation = False
-            self.sprite.size = 1, 1
+            self.sprite.size = dp(1), dp(1)
             self.sprite.pos = self.width * .6, self.height * .5
             self.scat.scale = 1
             self.ctrl = False
+
+            # for tracing
+            self.simple_border = []
+            self.simplest_border = []
+            self.trace_mode = False
+            self.temp_img = ''
+            self.orig_source = None
+            self.matte = 1, .5, 1, 1
+            self.multi_shape = False
+            self.multi_chk.active = False
+            self.all_frames = False
+            self.all_chk.active = False
+            self.all_go = False
+            self.done = 0
+            self.trace_box.thres = dp(1.0)
+
             self.empty_cut()
             try:
                 self.sprite.remove_widget(self.sprite.image)
@@ -889,15 +964,6 @@ class Editor(FloatLayout):
         self.update()
         self.draw()
 
-    def clear_points(self):
-        for frame in itervalues(self.rec):
-            for pol in itervalues(frame):
-                while len(pol['btn_points']):
-                    self.scat.remove_widget(pol['btn_points'].pop())
-                self.scat.remove_widget(pol['label'])
-            frame.clear()
-        self.rec.clear()
-
     def restore(self, snapshot, version):
         for f, sframe in iteritems(snapshot):
             if f in ('frame', 'pol', 'index', 'to_transfer'):
@@ -911,10 +977,10 @@ class Editor(FloatLayout):
                     self.rec[f][p]['open'] = pol['open']
                 except Exception:
                     self.rec[f][p]['open'] = False
-                self.rec[f][p]['color'] = pol['color']
-                self.rec[f][p]['label'] = Label(size=(50, 50), font_size='35sp',
+                self.rec[f][p]['color'] = tuple(pol['color'])
+                self.rec[f][p]['label'] = Label(size=(dp(50), dp(50)), font_size='35sp',
                                                 bold=True,
-                                                color=pol['color'][:-1] + [.3])
+                                                color=self.rec[f][p]['color'][:-1] + (.3,))
                 self.scat.add_widget(self.rec[f][p]['label'])
                 self.rec[f][p]['btn_points'] = [Point(self.rec[f][p], self,
                                                       self.mag,
@@ -932,7 +998,7 @@ class Editor(FloatLayout):
                         point.area_color = point.norm_fill_color
                         point.line_color = point.norm_line_color
 
-    # ------------------------ OUTPUT -----------------------
+# ,,,------------------------ OUTPUT -----------------------
     def unlock_order(self, state=None, *args):
         if not state:
             state = self.index_btn.state
@@ -968,7 +1034,7 @@ class Editor(FloatLayout):
 
         self.popup = AutoPopup(content=popup,
                                size_hint=(None, None),
-                               size=(240, 150))
+                               size=(dp(240), dp(150)))
         self.popup.title = 'Multi-frame export options'
         self.popup.open()
 
@@ -992,7 +1058,7 @@ class Editor(FloatLayout):
 
         self.popup = AutoPopup(content=popup,
                                size_hint=(None, None),
-                               size=(240, 150))
+                               size=(dp(240), dp(150)))
         self.popup.title = 'Select code language:'
         self.popup.open()
 
@@ -1003,7 +1069,7 @@ class Editor(FloatLayout):
         Clipboard.copy(code)
         self.warn('Bounds exported!',
                   'Code is now on the clipboard,\n'
-                  'ready to be pasted in a Rotabox widget\n'
+                  'ready to Paste in a Rotabox widget\n'
                   'that uses the same image.',
                   action=self.dismiss_popup, cancel=0,
                   tcolor=(.1, .65, .1, 1))
@@ -1100,7 +1166,7 @@ class Editor(FloatLayout):
         self.code = self.code.rstrip(',\n ')
         return opens
 
-    # ------------------------ STORAGE -----------------------
+# ,,,------------------------ STORAGE -----------------------
     def store(self, project):
         for f, frame in iteritems(self.rec):
             project[f] = {}
@@ -1171,7 +1237,7 @@ class Editor(FloatLayout):
         except IOError as er:
             print('On exit_save: ', er)
 
-    # ---------------------- USER EVENTS ---------------------
+# ,,,---------------------- USER EVENTS ---------------------
     def on_touch_down(self, touch):
         mouse_btn = ''
         if self.shortcuts.opacity:
@@ -1182,6 +1248,9 @@ class Editor(FloatLayout):
         if not self.sprite.image:
             super(Editor, self).on_touch_down(touch)
             return
+        if self.trace_mode and not self.trace_box.collide_point(*touch.pos) \
+                and mouse_btn != 'scrolldown' and mouse_btn != 'scrollup' and mouse_btn not in ['right', 'middle']:
+            return
         if mouse_btn == 'scrolldown':
             self.zoom('in')
             return
@@ -1190,13 +1259,18 @@ class Editor(FloatLayout):
             return
         for entry in self.ids:
             widg = self.ids[entry]
-            if ((isinstance(widg, (Button, CheckBox, ScrollLabel))
-                 or entry == 'save') and
-                    widg.collide_point(*widg.to_widget(*touch.pos))):
+            if self.trace_mode:
+                if (hasattr(widg, 'group')
+                        and widg.group not in ['trace', 'method']
+                        and mouse_btn not in ['right', 'middle']):
+                    continue
+            if ((isinstance(widg, (Button, CheckBox, ScrollLabel, Slider))
+                    or entry == 'save')
+                    and widg.collide_point(*widg.to_widget(*touch.pos))):
                 if mouse_btn != 'right' and mouse_btn != 'middle':
                     super(Editor, self).on_touch_down(touch)
                     self.update()
-                self.save_state(switch=1)
+                self.save_state(motion_end=1)
                 return True
         pos = self.scat.to_widget(*touch.pos)
         for child in self.scat.children:
@@ -1210,10 +1284,11 @@ class Editor(FloatLayout):
             super(Editor, self).on_touch_down(touch)
             return True
         elif self.grid.collide_point(*touch.pos):
-            if not self.to_transfer:
-                self.add_point(*pos)
-            else:
-                self.transfer_points()
+            if not self.trace_mode:
+                if not self.to_transfer:
+                    self.add_point(*pos)
+                else:
+                    self.transfer_points()
             super(Editor, self).on_touch_down(touch)
 
     def touch_point(self, touch, mouse_btn, point):
@@ -1234,25 +1309,48 @@ class Editor(FloatLayout):
 
     def on_key(self, window, key, *args):
         """ What happens on keyboard press"""
+        # print(key)
+
+        if key == 119:  # W
+            self.wgh_btn.state = 'down'
+            self.uni_btn.state = 'normal'
+            self.weighted_mode()
+        if key == 117:  # U
+            self.wgh_btn.state = 'normal'
+            self.uni_btn.state = 'down'
+            self.uniform_mode()
+
         if key == 305 or key == 306:  # Ctrl
             self.ctrl = True
         if key == 27:  # Esc/Back
-            if self.popup:
+            if self.trace_mode:
+                self.cancel_trace()
+                return True
+            elif self.popup:
                 self.dismiss_popup()
                 return True
-            if self.to_transfer:
+            elif self.to_transfer:
                 self.save_state('Picked Points {}'
                                 .format(self.to_transfer))
                 self.empty_cut()
                 self.save_state('Cancelled transfer')
                 return True
-            if self.shortcuts.opacity:
+            elif self.shortcuts.opacity:
                 self.hide_keys()
                 return True
             else:
                 return False
-        if key == 13:  # Enter
-            if self.popup:
+        if key == 13 or key == 271:  # Enter
+            if self.trace_mode:
+                if self.popup:
+                    self.matte = self.popup.content.clr.color
+                    self.col_prmpt.color = self.popup.content.clr.color
+                    self.sprite.color = self.popup.content.clr.color
+                    self.make_image()
+                    self.dismiss_popup()
+                else:
+                    self.accept_points()
+            elif self.popup:
                 if self.popup.title.startswith('Open'):
                     self.load_check(self.popup.content.filechooser.path,
                                     self.popup.content.filechooser.filename)
@@ -1288,27 +1386,32 @@ class Editor(FloatLayout):
             if self.popup and self.popup.title.startswith('Select info'):
                 self.help()
         if key == 107:  # K
-            if self.popup and self.popup.title.startswith('Select info'):
-                self.show_keys()
+            print(self.popup.title)
+            if self.popup and self.popup.title.startswith('Select code'):
+                self.to_clipboard(py=False)
 
-        if key == 115:  # S
-            if self.popup and self.popup.title.startswith('Multi-frame'):
-                self.choose_lang()
         if key == 97:  # A
             if self.popup and self.popup.title.startswith('Multi-frame'):
                 self.choose_lang()
-
-        if key == 107:  # K
-            if self.popup and self.popup.title.startswith('Select code'):
-                self.to_clipboard(py=False)
         if key == 112:  # P
             if self.popup and self.popup.title.startswith('Select code'):
                 self.to_clipboard()
 
+        if key == 115:  # S
+            if ['ctrl'] in args:
+                self.save_proj()
+            else:
+                if self.popup and self.popup.title.startswith('Select info'):
+                    self.show_keys()
+                elif self.popup and self.popup.title.startswith('Multi-frame'):
+                    self.choose_lang()
+                else:
+                    self.save_dialog()
+
         if self.popup:
             return True
         if key not in [273, 274, 275, 276, 303, 304, 305, 306] and self.history:
-            self.save_state(switch=1)
+            self.save_state(motion_end=1)
 
         if key == 111:  # O
             if ['ctrl'] in args:
@@ -1318,29 +1421,29 @@ class Editor(FloatLayout):
 
         # ---------------- IF IMAGE IS PRESENT
 
-        if key == 115:  # S
-            if ['ctrl'] in args:
-                self.save_proj()
-            else:
-                self.save_dialog()
-
         if key == 270 or key == 61:  # +
-            self.zoom('in')
+            if self.trace_mode:
+                self.minus_btn.dispatch('on_release')
+            else:
+                self.zoom('in')
         if key == 269 or key == 45:  # -
-            self.zoom('out')
+            if self.trace_mode:
+                self.plus_btn.dispatch('on_release')
+            else:
+                self.zoom('out')
 
         if key == 49:  # 1
-            self.set_color([.29, .518, 1, 1])
+            self.set_color((.29, .518, 1, 1))
         if key == 50:  # 1
-            self.set_color([1, .29, .29, 1])
+            self.set_color((1, .29, .29, 1))
         if key == 51:  # 1
-            self.set_color([.29, 1, .29, 1])
+            self.set_color((.29, 1, .29, 1))
         if key == 52:  # 1
-            self.set_color([1, 1, .29, 1])
+            self.set_color((1, 1, .29, 1))
         if key == 53:  # 1
-            self.set_color([1, .29, 1, 1])
+            self.set_color((1, .29, 1, 1))
         if key == 54:  # 1
-            self.set_color([.29, 1, 1, 1])
+            self.set_color((.29, 1, 1, 1))
 
         if key == 110:  # N
             self.nums_on = not self.nums_on
@@ -1392,66 +1495,69 @@ class Editor(FloatLayout):
             for point in self.to_transfer:
                 curr_point = self.rec[self.frame][point[0]]['btn_points'][point[1]]
                 if ['ctrl'] in args:
-                    curr_point.center_y += .1
+                    curr_point.center_y += dp(.1)
                 elif ['shift'] in args:
-                    curr_point.center_y += 10
+                    curr_point.center_y += dp(10)
                 else:
-                    curr_point.center_y += 1
+                    curr_point.center_y += dp(1)
                 self.save_state(msg=str(self.index)
                                 + '_'
                                 + str(self.pol)
                                 + '_'
                                 + str((round(curr_point.center_x),
                                        round(curr_point.center_y))),
-                                move=1)
+                                motion=1)
         if key == 274:  # down
             for point in self.to_transfer:
                 curr_point = self.rec[self.frame][point[0]]['btn_points'][point[1]]
                 if ['ctrl'] in args:
-                    curr_point.center_y -= .1
+                    curr_point.center_y -= dp(.1)
                 elif ['shift'] in args:
-                    curr_point.center_y -= 10
+                    curr_point.center_y -= dp(10)
                 else:
-                    curr_point.center_y -= 1
+                    curr_point.center_y -= dp(1)
                 self.save_state(msg=str(self.index)
                                 + '_'
                                 + str(self.pol)
                                 + '_'
                                 + str((round(curr_point.center_x),
                                        round(curr_point.center_y))),
-                                move=1)
+                                motion=1)
         if key == 275:  # right
             for point in self.to_transfer:
                 curr_point = self.rec[self.frame][point[0]]['btn_points'][point[1]]
                 if ['ctrl'] in args:
-                    curr_point.center_x += .1
+                    curr_point.center_x += dp(.1)
                 elif ['shift'] in args:
-                    curr_point.center_x += 10
+                    curr_point.center_x += dp(10)
                 else:
-                    curr_point.center_x += 1
+                    curr_point.center_x += dp(1)
                 self.save_state(msg=str(self.index)
                                 + '_'
                                 + str(self.pol)
                                 + '_'
                                 + str((round(curr_point.center_x),
                                        round(curr_point.center_y))),
-                                move=1)
+                                motion=1)
         if key == 276:  # left
             for point in self.to_transfer:
                 curr_point = self.rec[self.frame][point[0]]['btn_points'][point[1]]
                 if ['ctrl'] in args:
-                    curr_point.center_x -= .1
+                    curr_point.center_x -= dp(.1)
                 elif ['shift'] in args:
-                    curr_point.center_x -= 10
+                    curr_point.center_x -= dp(10)
                 else:
-                    curr_point.center_x -= 1
+                    curr_point.center_x -= dp(1)
                 self.save_state(msg=str(self.index)
                                 + '_'
                                 + str(self.pol)
                                 + '_'
                                 + str((round(curr_point.center_x),
                                        round(curr_point.center_y))),
-                                move=1)
+                                motion=1)
+
+        if key == 98:  # B
+            self.start_trace()
 
         # ---------------- IF SELECTED POINT
 
@@ -1462,7 +1568,7 @@ class Editor(FloatLayout):
             if key == 109:  # M
                 curr_point.pop_up()
 
-            if key == 116:  # T
+            if key == 112:  # P
                 self.pick_point(curr_point)
 
             if key == 127:  # Delete
@@ -1496,63 +1602,63 @@ class Editor(FloatLayout):
             if key == 273:  # up
                 if not self.to_transfer:
                     if ['ctrl'] in args:
-                        curr_point.center_y += .1
+                        curr_point.center_y += dp(.1)
                     elif ['shift'] in args:
-                        curr_point.center_y += 10
+                        curr_point.center_y += dp(10)
                     else:
-                        curr_point.center_y += 1
+                        curr_point.center_y += dp(1)
                     self.save_state(msg=str(self.index)
                                     + '_'
                                     + str(self.pol)
                                     + '_'
                                     + str((round(curr_point.center_x),
                                            round(curr_point.center_y))),
-                                    move=1)
+                                    motion=1)
             if key == 274:  # down
                 if not self.to_transfer:
                     if ['ctrl'] in args:
-                        curr_point.center_y -= .1
+                        curr_point.center_y -= dp(.1)
                     elif ['shift'] in args:
-                        curr_point.center_y -= 10
+                        curr_point.center_y -= dp(10)
                     else:
-                        curr_point.center_y -= 1
+                        curr_point.center_y -= dp(1)
                     self.save_state(msg=str(self.index)
                                     + '_'
                                     + str(self.pol)
                                     + '_'
                                     + str((round(curr_point.center_x),
                                            round(curr_point.center_y))),
-                                    move=1)
+                                    motion=1)
             if key == 275:  # right
                 if not self.to_transfer:
                     if ['ctrl'] in args:
-                        curr_point.center_x += .1
+                        curr_point.center_x += dp(.1)
                     elif ['shift'] in args:
-                        curr_point.center_x += 10
+                        curr_point.center_x += dp(10)
                     else:
-                        curr_point.center_x += 1
+                        curr_point.center_x += dp(1)
                     self.save_state(msg=str(self.index)
                                     + '_'
                                     + str(self.pol)
                                     + '_'
                                     + str((round(curr_point.center_x),
                                            round(curr_point.center_y))),
-                                    move=1)
+                                    motion=1)
             if key == 276:  # left
                 if not self.to_transfer:
                     if ['ctrl'] in args:
-                        curr_point.center_x -= .1
+                        curr_point.center_x -= dp(.1)
                     elif ['shift'] in args:
-                        curr_point.center_x -= 10
+                        curr_point.center_x -= dp(10)
                     else:
-                        curr_point.center_x -= 1
+                        curr_point.center_x -= dp(1)
                     self.save_state(msg=str(self.index)
                                     + '_'
                                     + str(self.pol)
                                     + '_'
                                     + str((round(curr_point.center_x),
                                            round(curr_point.center_y))),
-                                    move=1)
+                                    motion=1)
         self.draw()
 
     def on_key_up(self, window, key, *args):
@@ -1563,7 +1669,7 @@ class Editor(FloatLayout):
         if key == 305 or key == 306:  # Ctrl
             self.ctrl = False
 
-    # ------------------------ VISUALS -----------------------
+# ,,,------------------------ VISUALS -----------------------
     def show_numbers(self):
         if self.rec:
             frame = self.rec[self.frame]
@@ -1595,8 +1701,8 @@ class Editor(FloatLayout):
                     diag = (pw * ph) ** .5
                     label.width = pw * .33
                     label.height = ph * .33
-                    label.font_size = '{}sp'.format(round(diag * .3))
-                    label.color = pol['color'][:-1] + [.3]
+                    label.font_size = sp(round(diag * .3))
+                    label.color = pol['color'][:-1] + (.3,)
                     label.text = str(pol['key'])
                     label.opacity = 1
             else:
@@ -1630,14 +1736,28 @@ class Editor(FloatLayout):
     def update(self):
         self.show_numbers()
         self.show_history()
+
         for entry in self.ids:
             if hasattr(self.ids[entry], 'group'):
-                if not self.ids[entry].group == 'nav':
+                if not (self.ids[entry].group == 'nav' or entry == 'col_prmpt'):
                     self.ids[entry].disabled = False
                 elif self.atlas_source:
+                    if entry == 'col_prmpt':
+                        self.col_back.opacity = 1
                     self.ids[entry].disabled = False
                 else:
+                    if entry == 'col_prmpt':
+                        self.col_back.opacity = 0
                     self.ids[entry].disabled = True
+
+        if self.trace_mode:
+            self.multi_btn.disabled = False
+            if self.atlas_source:
+                self.all_btn.disabled = False
+                self.all_chk.disabled = False
+            else:
+                self.all_btn.disabled = True
+                self.all_chk.disabled = True
 
         if self.state > -len(self.history) or self.moves:
             self.undo.disabled = False
@@ -1658,6 +1778,26 @@ class Editor(FloatLayout):
 
     def hover(self, *args):
         pos = Window.mouse_pos
+        if self.trace_mode:
+            for entry in self.ids:
+                btn = self.ids[entry]
+                if hasattr(btn, 'group'):
+                    if btn.group == 'trace':
+                        if btn.collide_point(*pos):
+                            if entry == 'multi_rel':
+                                self.board2.text = 'Continue tracing until all shapes are included.'
+                            elif entry == 'col_rel':
+                                self.board2.text = 'Background adjustment for optimum separation ' \
+                                       'in non-alpha tracing (.atlas images).'
+                                self.col_prmpt.background_color = .23, .23, .3, 1
+                            elif entry == 'all_rel':
+                                self.board2.text = 'All frames will be processed with these settings.'
+                            btn.background_color = .23, .23, .3, 1
+                            return True
+                        else:
+                            btn.background_color = .13, .13, .2, 1
+                self.board2.text = "Using image's outline to define bounds. Adjust border complexity."
+            return
         for entry in self.ids:
             btn = self.ids[entry]
             if entry == 'num_btn':
@@ -1679,19 +1819,16 @@ class Editor(FloatLayout):
                                '[Ctrl] + [O]'
             self.load_btn.background_color = .23, .23, .3, 1
             return True
-
         if self.save.collide_point(*pos):
             self.board2.text = 'Save current project to a project file. [S]\n' \
                                'If checked, it functions as a quick save/' \
                                'overwrite (no dialog) [Ctrl] + [S].'
             self.save_btn.background_color = .23, .23, .3, 1
             return True
-
         if self.help_btn.collide_point(*pos):
             self.board2.text = 'Help [F1]'
             self.help_btn.background_color = .23, .23, .3, 1
             return True
-
         if self.undo.collide_point(*pos):
             self.board2.text = 'Undo last action. [Ctrl] + [Z]'
             self.undo.background_color = .23, .23, .3, 1
@@ -1700,7 +1837,6 @@ class Editor(FloatLayout):
             self.board2.text = 'Redo last undone action. [Ctrl] + [Shift] + [Z]'
             self.redo.background_color = .23, .23, .3, 1
             return True
-
         if self.prev.collide_point(*pos):
             self.board2.text = "Previous frame of an atlas' sequence. [<]\n" \
                                "If [Alt] is pressed, frame's points " \
@@ -1713,7 +1849,6 @@ class Editor(FloatLayout):
                                "next frame's points."
             self.next.background_color = .23, .23, .3, 1
             return True
-
         if self.minus.collide_point(*pos):
             self.board2.text = 'Zoom out. [-]'
             self.minus.background_color = .23, .23, .3, 1
@@ -1722,7 +1857,10 @@ class Editor(FloatLayout):
             self.board2.text = 'Zoom in. [+]'
             self.plus.background_color = .23, .23, .3, 1
             return True
-
+        if self.trace_btn.collide_point(*pos):
+            self.board2.text = "Image's outline tracing. A convenient place to start. [T]"
+            self.trace_btn.background_color = .23, .23, .3, 1
+            return True
         if self.cancel_btn.collide_point(*pos):
             self.board2.text = 'Cancel points transfer. [Esc]'
             self.cancel_btn.background_color = .23, .23, .3, 1
@@ -1735,23 +1873,21 @@ class Editor(FloatLayout):
             self.board2.text = 'Delete the selected polygon. [Shift] + [Delete]'
             self.clear_pol.background_color = .23, .23, .3, 1
             return True
-
         if self.open_btn.collide_point(*pos):
             self.board2.text = 'Open/close the selected polygon. [O]'
             self.open_btn.background_color = .23, .23, .3, 1
             return True
-
         if self.copy_btn.collide_point(*pos):
             self.board2.text = 'Export the resulting code to clipboard, ' \
                                'to use in a Rotabox widget. [E]'
             self.copy_btn.background_color = .23, .23, .3, 1
             return True
-
         if self.num_area.collide_point(*pos):
             self.board2.text = "Show/Hide the polygons' and points' indices. [N]"
-            self.num_btn.background_color = .05, .05, .05, 1
+            self.num_btn.background_color = .23, .23, .3, 1
             return True
-
+        else:
+            self.num_btn.background_color = .13, .13, .2, 1
         if self.index_btn.collide_point(*pos):
             self.board2.text = "Set the polygons' order in the exported code. [R]"
             if self.index_btn.state == 'normal':
@@ -1759,7 +1895,6 @@ class Editor(FloatLayout):
             else:
                 self.index_btn.background_color = 1, .15, .15, 1
             return True
-
         if self.blue_btn.collide_point(*pos):
             self.board2.text = "Set the color of the current polygon or set " \
                                "default polygon color. [1]"
@@ -1799,28 +1934,25 @@ class Editor(FloatLayout):
             self.board2.text = "The order in which the polygons would be " \
                                "written if exported."
             return True
-
         if self.to_transfer:
             self.board2.text = ("Click on a different point to transfer the "
                                 "picked points after it, or click anywhere to "
                                 "make a separate new polygon [Enter]. Press "
                                 "[Esc] to cancel.")
             return True
-
         if not self.ordered:
             self.board2.text = ("Select each polygon in the order that they need "
                                 "to be in the outputed list. When finished, click "
                                 "on the order button once more to lock the order "
                                 "again.")
             return True
-
-        self.board2.text = ('Click to add, select or drag to move a point. '
-                            'Right click on canvas to move canvas.\n'
+        self.board2.text = ('Click to add/select or drag to move a point. '
+                            'Right click on canvas to move the image.\n'
                             'Scroll to zoom. Middle click to reset zoom.')
 
     def set_color(self, color, *args):
         if self.pol:
-            self.rec[self.frame][self.pol]['color'] = color
+            self.rec[self.frame][self.pol]['color'] = tuple(color)
             self.update()
             self.draw()
         else:
@@ -1862,13 +1994,20 @@ class Editor(FloatLayout):
 
     def zoom(self, btn):
         if btn == 'in':
-            if self.scat.scale < 100:
+            if self.scat.scale < 10:
                 self.scat.scale += 0.5
+                self.adjust_points()
         elif btn == 'out':
             if self.scat.scale > 0.4:
                 self.scat.scale -= 0.3
+                self.adjust_points()
 
-    # ----------------------- UTILS --------------------------
+    def adjust_points(self):
+        for chld in self.scat.children:
+            if isinstance(chld, Button):
+                chld.scale = 1.5 / self.scat.scale + .1
+
+# ,,,----------------------- UTILS --------------------------
     @staticmethod
     def sanitize_filename(filename):
         """ Creates a safe filename from the text input
@@ -1893,7 +2032,7 @@ class Editor(FloatLayout):
             buttons.add_widget(cancel_btn)
 
         ok_btn = Button(background_color=(.13, .13, .2, 1),
-                        on_press=action)
+                        on_release=action)
         ok_btn.text = 'OK'
         buttons.add_widget(ok_btn)
 
@@ -1903,7 +2042,7 @@ class Editor(FloatLayout):
                                title_size='18sp',
                                title_color=title_color,
                                size_hint=(None, None),
-                               size=(440, 240))
+                               size=(dp(440), dp(240)))
         self.popup.title = title
         self.popup.open()
 
@@ -1969,7 +2108,7 @@ class Editor(FloatLayout):
 
         self.popup = AutoPopup(content=popup,
                                size_hint=(None, None),
-                               size=(240, 150))
+                               size=(dp(240), dp(150)))
         self.popup.title = 'Select info:'
         self.popup.open()
 
@@ -1996,7 +2135,7 @@ Fine {1}{0}[Ctrl + Arrows]{2}{3}
 
 {0}Transfer points to another polygon{2}:
 Pick point {1}{0}[Ctrl + Click]{2}{3}
-Pick selected point {1}{0}[T]{2}{3}
+Pick selected point {1}{0}[P]{2}{3}
 Transfer picked points {1}{0}[Enter]{2}{3}
 
 {0}Dialog Cancel{2}: {1}{0}[Esc]{2}{3}
@@ -2015,7 +2154,7 @@ Transfer picked points {1}{0}[Enter]{2}{3}
         self.dismiss_popup()
         content = BoxLayout(orientation='vertical')
         scrl_label = ScrollLabel()
-        scrl_label.label.padding_x = 10
+        scrl_label.label.padding_x = dp(10)
         scrl_label.scroll_y = 1
         scrl_label.label.font_size = '18sp'
         scrl_label.label.markup = True
@@ -2024,34 +2163,38 @@ Transfer picked points {1}{0}[Enter]{2}{3}
 
 Rotaboxer is an editing tool for the Rotabox collision bounds.
 With an image as input, specific bounds can be visually shaped for it, to export as code to clipboard and use as {0}custom bounds{4} of a Rotabox widget, in a kivy project.
-Animated bounds are also supported, with the use of atlases.
+Animated bounds are also supported, with the use of .atlas files.
 
 {0}{5}Usage{7}{4}
 This document is complementary to the editor's {0}tooltips{4} and the {0}Keyboard shortcuts{4} document.
 It's a short desciption of the process with special notes where things may not be apparent.
 
-{0}{6}Opening an image{7}{4} or a {0}{6}sequence{7}{4}
+{0}{6}Opening an image {7}{4}or an image{0}{6} sequence{7}{4}
 Open a {0}.png{4} or {0}.atlas{4} file, with the image(s) the resulting bounds are meant for.
 
-{0}{6}Adding points to form polygons (polygons){7}{4}
+{0}{6}Adding bounds automatically {7}{4}using image's outline
+{0}Auto bounds{4} button starts an alpha tracing (or color tracing in the case of an .atlas image) to determine the image's outline and brings up an interface to control the accuracy/complexity of the result.
+{0}Matte color{4} button allows adjustment of the background color that will be added for the tracing of an .atlas image. It needs to be clearly distinguishable from the image's outline.
+{0}All shapes{4} checkbox switches between stopping the tracing after the first encountered shape (to avoid transparency islands inside a single-shaped image) and continuing the tracing to include all shapes (of a multi-shaped image).
+If {0}All frames{4} is checked, {0}Accept{4} button will process the entire animation with the current settings.
+
+{0}{6}Adding points to form polygons{7}{4}
 New points are added by {0}clicking{4} on the workspace.
 Each new point is spawn connected to the currently selected point and after it, in terms of index numbers. Any indices after the selected will shift.
 If no point is selected, the new point will start a new polygon.
 
-{0}{6}Selecting a point{7}{4}
+{0}{6}Selecting a point/polygon{7}{4}
 {0}Click{4} on a point to select/deselect it.
 When selecting a point, the encompassing polygon is selected too.
 (See {0}Keyboard shortcuts{4} for selection conveniences).
 
-{0}{6}Selecting a polygon{7}{4}
-{0}Click{4} on one of its points to select/deselect it.
-(See {0}Keyboard shortcuts{4} for selection conveniences).
-
-{0}{6}Reorder polygons{7}{4} If {0}Order polygons{4} is pressed, the polygons can be selected, consecutively, in the (intended) exporting order.
-{0}Note{4} that their displayed number doesn't change but their order does (watch the label bottom-right corner of the workarea).
-
 {0}{6}Moving a point{7}{4}:
 A point can be moved by {0}Clicking & dragging{4} it, or by using the {0}keyboard arrows{4}.
+
+{0}{6}Reordering polygons{7}{4}:
+If {0}Order polygons{4} is pressed, the polygons can be selected, consecutively, in the (intended) exporting order.
+{0}Note{4} that their displayed number doesn't change but their order does (watch the label bottom-right corner of the workarea).
+{0}Important{4}: The order that the polygons will be written in the resulting {0}custom_bounds{4} list will be the order in which polygons are going to be considered during collision checks in Rotabox.
 
 {0}{6}Transfering points to another polygon{7}{4}:
 Not to be confused with a positional transfer, this is only a linkage change; an exchange between polygons' vertices.
@@ -2062,14 +2205,13 @@ Alternatively, they can form a {0}new polygon{4} by {0}clicking anywhere{4} in t
 {0}{6}Exporting the bounds{7}{4}.
 The Rotaboxer output, is the resulting code of {0}Export bounds{4} which is copied to the {0}clipboard{4}, to be used in a Rotabox widget.
 There's an option for {0}python{4} syntax or {0}kvlang{4} syntax (due to the indentation differences).
-If an {0}.atlas{4} file is being used, there is an option to determine whether it is an animation sequence. If it is an animation, the exported bounds will be a dictionary. Else, the exported bounds will be a list, concerning only the current frame.
-The order that the polygons, if more than one, will be written in the resulting [custom_bounds] list will be the order in which polygons are going to be considered during collision checks in Rotabox. This order can be determined by clicking {0}Order polygons{4}.
+If an {0}.atlas{4} file is being used, there is an option to determine whether it is an animation sequence. If it is an animation, the exported bounds of {0}all frames{4} will be a dictionary. Else, the exported bounds will be a list, concerning only the {0}current frame{4}.
 
 {0}{6}Zooming in / out the workspace{7}{4}:
 {0}Middle click{4} anywhere on the workspace to go back to the normal view.
 
-{0}{6}Moving the workspace{7}{4}:
-{0}Right click & drag{4} to move the workspace.
+{0}{6}Moving the image{7}{4}:
+{0}Right click & drag{4} to move the image.
 
 {0}{6}Cloning points between frames{7}{4}:
 While advancing through an atlas' images using the screen buttons or the {0}[<]/[>]{4} keys, the points of the current frame can be {0}cloned{4} to the next, using the {0}[Alt]{4} key, together with the aforementioned buttons or keys.
@@ -2096,15 +2238,528 @@ If not in Windows and the user exits the editor without saving changes (not beca
         self.popup.title = 'Help'
         self.popup.open()
 
+# ,,,--------------------- IMAGE-TRACING -----------------------
+    def start_trace(self):
+        '''
+        Deselecting and removing any Points from current frame,
+        revealing the trace-GUI and wait-animation, and starting the image
+        tracing in a thread.
+        '''
+        self.pol = None
+        for pol in itervalues(self.rec[self.frame]):
+            while len(pol['btn_points']):
+                self.scat.remove_widget(pol['btn_points'].pop())
+            self.scat.remove_widget(pol['label'])
+        self.rec[self.frame].clear()
+        self.trace_box.x = dp(5)
+        self.trace_mode = True
+        self.update()
+        self.draw()
 
-class AutoPopup(Popup):
-    '''Subclassing, to compensate if Esc key was used to close a popup.
-    Seems that by (automatically) closing the popup, Esc consumes the event
-    before completing the task to empty the self.popup variable.'''
-    def on_dismiss(self, *args):
-        for child in Window.children:
-            if isinstance(child, Editor) and child.popup:
-                child.popup = None
+        self.busy.opacity = 1
+
+        t = Thread(target=self.trace_image)
+        t.daemon = True
+        t.start()
+
+    def make_image(self, *args):
+        '''
+        Exporting the Image of the current frame to a .png file, using it to
+        make a new Image with keep_data=True to replace the one with the .atlas
+        source and restarting the trace.
+        '''
+
+        # If it's a remake, after a change of the background color
+        if self.popup:
+            self.dismiss_popup()
+            self.frame = self.orig_source[1]
+            self.sprite.image.canvas.after.clear()
+
+        self.temp_img = 'temp_' + self.image.split('.')[0] \
+                        + self.frame + '.' + str(time.time()) + '.png'
+        self.sprite.export_to_png(self.temp_img)
+
+        newimage = Image(pos=self.sprite.image.pos, source=self.temp_img,
+                         keep_data=True)
+        self.sprite.remove_widget(self.sprite.image)
+        self.sprite.add_widget(newimage)
+        self.sprite.image = newimage
+
+        Clock.schedule_once(self.retrace)
+
+    def retrace(self, *args):
+        '''
+        Another start_trace with less preparation.
+        '''
+        self.sprite.image.canvas.after.clear()
+        self.busy.opacity = 1
+
+        t = Thread(target=self.trace_image)
+        t.daemon = True
+        t.start()
+
+    def trace_image(self, *args):
+        '''
+        Detecting opaque areas in an image and keeping their outlines.
+        '''
+        read_pixel = self.sprite.image._coreimage.read_pixel
+
+        # If image source is an .atlas file, an exception will be raised
+        # (read_pixel doesn't work on .atlas files) and a background color will
+        # be added to the image, to make it ready for an export to a substitude
+        # .png, suitable for color tracing (export_to_png doesn't keep the alpha
+        # channel). The new .png will then pass this test.
+        try:
+            test = read_pixel(0, 0)
+        except AttributeError:
+            self.orig_source = self.sprite.image.source, self.frame
+            self.col_prmpt.color = self.matte
+            self.sprite.color = self.matte
+            Clock.schedule_once(self.make_image)
+            return
+
+        image = self.sprite.image
+
+        # Detecting opaque pixels (or pixels distinguishable from the given
+        # background) and giving them a value of 1 (instead of 0) in a matrix
+        # representation of the image.
+        shadow = []
+        for x in range(int(image.width)):
+            shadow.append([])
+            for y in range(int(image.height)):
+                pix_clr = read_pixel(x, int(image.height) - y - 1)
+
+                if self.orig_source is None:
+                    shadow[x].append(1 if pix_clr[-1] else 0)
+                else:  # substitude .png
+                    shadow[x].append(1 if pix_clr != test else 0)
+
+        # Restoring the .atlas source and deleting the substitude .png
+        if self.orig_source:
+            self.sprite.color = tuple(self.matte[:-1]) + (0.0,)
+            self.sprite.image.source = self.orig_source[0]
+            try:
+                os.remove(self.temp_img)
+            except EnvironmentError:
+                pass
+
+        # Keeping the contour (outline) of the opaque area:
+        # Only 1-points that border to 0-points keep their value, while they are
+        # being transfered to the 'contour' matrix.
+        contour = []
+        for x in range(len(shadow)):
+            contour.append([])
+            for y in range(len(shadow[0])):
+                if shadow[x][y]:
+                    if not x or not y:
+                        contour[x].append(1)
+                        continue
+                    try:
+                        if not shadow[x][y - 1]:
+                            contour[x].append(1)
+                            continue
+
+                        if not shadow[x][y + 1]:
+                            contour[x].append(1)
+                            continue
+
+                        if not shadow[x - 1][y]:
+                            contour[x].append(1)
+                            continue
+
+                        if not shadow[x + 1][y]:
+                            contour[x].append(1)
+                            continue
+                    except IndexError:
+                        contour[x].append(1)
+                        continue
+
+                contour[x].append(0)
+
+        # Converting the 'contour' matrix to one or more lists of points [x, y]
+        # representing polygon borders.
+        self.make_border(contour)
+
+    def make_border(self, contour, *args):
+        '''
+        Linking the points of the contour to form a border for each of the
+        possible different shapes in the image, clearing the patterns
+        representing straight lines of different angles in the dense
+        (axis-aligned) contour and giving a first go to simplify the border
+        with the default threshold, before letting the user take control.
+        '''
+        shapes = []
+        found = []
+        broken = False
+
+        # Finding a starting point on the contour for each shape's border.
+        # contour is still a two-dimentional matrix of 1s and 0s.
+        for x in range(len(contour)):
+            for y in range(len(contour[0])):
+                if contour[x][y] and [x, y] not in found:
+                    border = self.link_points(contour, x, y, found)
+
+                    if len(border) > MIN_SHAPE:
+                        shapes.append(border)
+
+                    # no need to continue if image consists of a single shape.
+                    if not self.multi_shape:
+                        broken = True
+                        break
+            if broken:
+                break
+
+        # removing the patterns representing straight lines
+        for shape in shapes:
+            self.clear_patterns(shape)
+
+        # utility variable for the GUI
+        self.complexity = max(int(round(sum([len(shp) for shp in shapes]) * .03)), 3)
+
+        self.simple_border = shapes
+
+        # an initial filtering, using the default threshold value
+        self.filter_border(self.trace_box.thres)
+
+    @staticmethod
+    def link_points(line, x, y, found, *args):
+        '''
+        Consecutive contour points' linking to a border chain.
+        :param line: list (the contour)
+        :param x: int
+        :param y: int (coords of a new point with value 1)
+        :param found: list (the already found points)
+        :return: list (the points of a new border)
+        '''
+        border = []
+        intersections = []
+        first = [x, y]
+
+        while [x, y] not in border:
+            # previous iteration's candidate as the next border point
+            border.append([x, y])
+            found.append([x, y])
+
+            up = [x, y + 1] if y + 1 < len(line[0]) else [x, y]
+            upright = [x + 1, y + 1] if x + 1 < len(line) \
+                                       and y + 1 < len(line[0]) else [x, y]
+            right = [x + 1, y] if x + 1 < len(line) else [x, y]
+            downright = [x + 1, y - 1] if x + 1 < len(line) and y > 0 else [x, y]
+            down = [x, y - 1] if y > 0 else [x, y]
+            downleft = [x - 1, y - 1] if x > 0 and y > 0 else [x, y]
+            left = [x - 1, y] if x > 0 else [x, y]
+            upleft = [x - 1, y + 1] if x > 0 and y + 1 < len(line[0]) else [x, y]
+
+            candidates = []
+            # looking around to find a candidate for the next border point
+            for [j, k] in [up, upright, right, downright, down, downleft, left,
+                           upleft]:
+
+                # if back where we started and border is of sufficient length
+                if [j, k] == first and len(border) > MIN_SHAPE:
+                    return border
+
+                # if point is opaque and new
+                if line[j][k] and [j, k] not in found:
+                    candidates.append([j, k])
+
+            # if no new opaque point in the vicinity, we're backtracking
+            if not candidates:
+                try:
+                    while True:
+                        # undoing what's done since the last intersection
+                        while len(border) > intersections[-1][0]:
+                            border.pop()
+                        else:
+                            break
+                    # another candidate tries as the next border point
+                    x, y = intersections[-1][1].pop(0)
+                    if not intersections[-1][1]:
+                        intersections.pop()
+                    continue
+                except IndexError:
+                    # no more intersections and nowhere to go. return border
+                    break
+
+            # if more than one path
+            if len(candidates) > 1:
+                # keeping the point of intersection and the alternative paths
+                intersections.append([len(border), candidates[1:]])
+
+            # the first candidate tries as the next border point
+            x, y = candidates[0]
+
+        return border
+
+    def clear_patterns(self, border, *args):
+        '''
+        Detects and clears the patterns representing straight lines
+        of different angles in the dense (axis-aligned) border.
+        The idea is that a pattern is always in the form of two consecutive
+        elements:
+        a) a group of (one-pixel, same-angle) segments of some angle and
+        b) a group of segments of a different angle.
+        So, by measuring the angles and counting same-angle segments,
+        two-element patterns emerge and are cleared as long as they repeat.
+        Consecutive same-angle segments are also cleared in the process.
+
+        :param border: list of points
+        '''
+        simple_border = []
+        pattern = []
+        count = 0
+        previous_angle = None
+        temp = []
+
+        for i in range(len(border)):
+            pt = border[i]
+            nextp = border[(i + 1) % len(border)]
+            angle, distance = self.calc_segment(nextp, pt)
+
+            if previous_angle is None:
+                simple_border.append(pt)  # keeping the very first point
+                previous_angle = angle  # establishing new element's angle
+                count = 1  # first point of new element
+                continue
+
+            if angle == previous_angle:  # an element continues
+
+                # If a repeating element just completed with the previous point,
+                # current point is kept and pattern is reset
+                # (starting element doesn't fit the existing pattern)
+                if len(pattern) == 2 and pattern[0] == [angle, count]:
+                    simple_border.append(pt)
+                    temp = []
+                    del pattern[:]
+                    count = 1  # first count of new element
+                    continue
+
+                count += 1   # continuing the element
+
+            else:  # an element completed
+
+                if len(pattern) == 2:  # if a pattern already exists,
+
+                    # the complete element compares to the first element
+                    # to determine repetition
+                    if pattern[0][0] == previous_angle and pattern[0][1] >= count:
+
+                        # If the repeating pattern doesn't use the whole element
+                        # the pattern's first point is found and kept
+                        if pattern[0][1] > count:
+                            simple_border.append(border[temp[0][0] + (count - 1)])
+
+                    # If repetition stops, the first element's candidate is kept
+                    else:
+                        simple_border.append(temp[0][1])
+
+                    pattern.pop(0)  # first element removed (so second is first)
+                    temp.pop(0)
+                pattern.append([previous_angle, count]) # complete element added
+                temp.append([i, pt])  # new element's first point as a candidate
+                previous_angle = angle  # establishing new element's angle
+                count = 1  # starting point-counting of the new element
+
+            # when in last iteration the remaining points in temp are added
+            # because, while they were never checked for a pattern, they still
+            # represent angle changes.
+            if i == len(border) - 1:
+                simple_border += [p[1] for p in temp]
+
+        border[:] = simple_border
+
+    @mainthread
+    def filter_border(self, thres, *args):
+        '''
+        Simplifying the border by eliminating the less critical points.
+        If a point, assuming a segment between its left and right neighbors,
+        is closer to the segment than the threshold value, it is left behind.
+
+        :param thres: float (distance threshold)
+        '''
+        shapes = self.simple_border[:]
+        pols = []
+        points = 0
+        for shape in shapes:
+            curr_border = shape
+            points2 = 0
+            points3 = 0
+            # More iterations with a lower threshold give a better result,
+            # since the reference point of a check can then be checked too.
+            # However there is a limit of iterations after which, no difference
+            # is made.
+            # For small images (~300x300) this limit is 3 or 4.
+            # For long straight lines (~600 pixels) is around 9.
+            # Default value is 10.
+            # Threshold is controlled by the user.
+            for p in range(FILTER_PASSES):
+                skip = False
+                simpler_border = []
+                points3 = 0
+                for i, pt in enumerate(curr_border):
+                    if skip:
+                        skip = False
+                        continue
+                    nextp = curr_border[(i + 1) % len(curr_border)]
+                    nexter = curr_border[(i + 2) % len(curr_border)]
+                    next_angle, next_dist = self.calc_segment(nexter, pt)
+
+                    # axis-aligning the imaginary segment between pt and nexter
+                    # (make it parallel to the x axis), to make its distance to
+                    # nextp equal to the difference between pt's y and nextp's y
+                    pts = self.rotate2axis([pt[0], pt[1], nextp[0], nextp[1]],
+                                           -next_angle)
+
+                    simpler_border.append(pt)
+                    points3 += 1
+
+                    # checking if the next point should be skipped
+                    if abs(pts[3] - pts[1]) < thres:
+                        skip = True
+                curr_border = simpler_border
+
+            points2 += points3
+            pols.append(curr_border)
+            points += points2
+
+        self.simplest_border = pols
+
+        self.sprite.image.canvas.after.clear()
+        for pol in pols:
+            self.draw_border(self.sprite.image, pol, close=True)
+        self.counter.text = str(points) + ' points'
+
+        self.busy.opacity = 0
+        if self.all_go:
+            self.accept_points()
+
+    def accept_points(self):
+        if self.orig_source:
+            self.frame = self.orig_source[1]
+            self.orig_source = None
+
+        self.sprite.image.canvas.after.clear()
+
+        for i, pol in enumerate(self.simplest_border):
+            polygon = self.rec[self.frame][str(i)] = {}
+            polygon['key'] = i
+            polygon['number'] = i
+            polygon['color'] = self.default_color
+            polygon['label'] = Label(size=(dp(50), dp(50)), font_size='35sp', bold=True,
+                                     color=polygon['color'][:-1] + (.3,))
+            self.scat.add_widget(polygon['label'])
+            polygon['open'] = False
+            polygon['btn_points'] = [Point(polygon, self, self.mag, text=str(i),
+                                           pos=(point[0] + self.sprite.x,
+                                                point[1] + self.sprite.y))
+                                     for i, point in enumerate(pol)]
+            for i in range(len(polygon['btn_points'])):
+                point = polygon['btn_points'][i]
+                self.scat.add_widget(point)
+                point.area_color = point.norm_fill_color
+                point.line_color = point.norm_line_color
+
+        self.done += 1
+        if not self.all_frames or len(self.keys) == self.done:
+            self.save_state('Auto-trace of frame {:02d}'.format(int(self.frame) + 1)
+                            + ': ' + str(len(self.simplest_border)) + ' points')
+            Clock.schedule_once(self.reset_trace)
+        else:
+            # continuing a loop to process all frames
+            self.all_go = True  # filter_border will call us again
+            self.navigate('>')
+            self.start_trace()
+
+    def cancel_trace(self):
+        if self.orig_source:
+            self.frame = self.orig_source[1]
+            self.orig_source = None
+
+        self.sprite.image.canvas.after.clear()
+
+        self.save_state('temp')
+        self.change_state('undo')
+        self.history.pop()
+        self.state = -1
+        Clock.schedule_once(self.reset_trace)
+
+    def reset_trace(self, *args):
+        self.trace_box.x = dp(-148)
+        self.trace_mode = False
+        self.all_frames = False
+        self.all_chk.active = False
+        self.all_go = False
+        self.done = 0
+        self.update()
+        self.draw()
+
+    def open_color(self):
+        prompt = ColorDialog()
+        prompt.matte = self.matte
+        prompt.clr.color = self.matte
+        self.popup = AutoPopup(title_align='center', content=prompt,
+                               title_size='18sp',
+                               title_color=(1, .1, .1, 1),
+                               size_hint=(None, None),
+                               size=(dp(480), dp(350)))
+        self.popup.title = 'Non-alpha tracing matte color'
+        self.popup.open()
+
+    def change_color(self):
+        '''
+        Delaying to make sure the new color will be there for the export_to_png
+        :return:
+        '''
+        Clock.schedule_once(self.make_image)
+
+    @staticmethod
+    def calc_segment(nextp, this):
+        dx = nextp[0] - this[0]
+        dy = nextp[1] - this[1]
+        distance = int(round(math.hypot(dx, dy)))
+        angle = int(round(math.degrees(math.atan2(dy, dx)))) % 360
+        return angle, distance
+
+    @staticmethod
+    def rotate2axis(points, angle):
+        '''
+        Rotating the relation between two points.
+        :param points: list of points in the form of [x1, y1, x2, y2]
+        :param angle: float angle in degrees
+        :return:
+        '''
+        pts = points[:]
+        orig0 = pts[2]
+        orig1 = pts[3]
+        angle = math.radians(angle)
+        c = math.cos(angle)
+        s = math.sin(angle)
+
+        for j in [0, 2]:
+            pts[j] = pts[j] - orig0
+            pts[j + 1] = pts[j + 1] - orig1
+            pj = pts[j]
+            pts[j] = pj * c - pts[j + 1] * s
+            pts[j + 1] = pj * s + pts[j + 1] * c
+            pts[j] = pts[j] + orig0
+            pts[j + 1] = pts[j + 1] + orig1
+        return pts
+
+    def delay_draw(self, border, *args):
+        self.sprite.image.canvas.after.clear()
+        self.draw_border(self.sprite.image, border, close=True)
+
+    @staticmethod
+    def draw_border(image, pts, col=0, close=False, pt_draw=True):
+        colors = [(1, 0, 1, 1), (0, 1, 1, 1), (1, 1, 0, 1)]
+        points = [[p[0] + image.x, p[1] + image.y] for p in pts]
+        with image.canvas.after:
+            Color(rgba=colors[col % len(colors)])
+            Line(points=[c for pt in points for c in pt], close=close)
+            if pt_draw:
+                Color(rgba=colors[1])
+                for pt in points:
+                    Line(circle=(pt[0], pt[1], dp(.5)))
 
 
 class ScattBack(ScatterPlane):
@@ -2116,6 +2771,38 @@ class ScattBack(ScatterPlane):
                                                        Window.height * .5))
 
 
+class Sprite(BoxLayout):
+    def __init__(self, **kwargs):
+        super(Sprite, self).__init__(**kwargs)
+        self.image = None
+
+    def on_size(self, *args):
+        self.x -= self.size[0] * .5
+        self.y -= self.size[1] * .5
+
+
+class TraceBox(BoxLayout):
+
+    def on_touch_down(self, touch):
+        if self.collide_point(*touch.pos):
+            super(TraceBox, self).on_touch_down(touch)
+            return True
+
+
+class AutoPopup(Popup):
+    '''Subclassing, to compensate if Esc key was used to close a popup.
+    Seems that by (automatically) closing the popup, Esc consumes the event
+    before completing the task to empty the self.popup variable.'''
+    def on_dismiss(self, *args):
+        for child in Window.children:
+            if isinstance(child, Editor) and child.popup:
+                child.popup = None
+
+
+class ColorDialog(BoxLayout):
+    pass
+
+
 class ScrollLabel(ScrollView):
     """ A scrolling label with translation and background color options
     """
@@ -2124,10 +2811,10 @@ class ScrollLabel(ScrollView):
     def __init__(self, **kwargs):
         super(ScrollLabel, self).__init__(**kwargs)
         self.scroll_type = ['bars', 'content']
-        self.bar_color = [.3, .3, .4, .35]
-        self.bar_inactive_color = [.3, .3, .4, .15]
-        self.bar_width = '10dp'
-        self.scroll_wheel_distance = 50
+        self.bar_color = (.3, .3, .4, .35)
+        self.bar_inactive_color = (.3, .3, .4, .15)
+        self.bar_width = dp(10)
+        self.scroll_wheel_distance = dp(50)
 
 
 # noinspection PyIncorrectDocstring
@@ -2230,10 +2917,7 @@ class FileChooserListViewX(FileChooserListView):
 
 
 class DarkButton(ToggleButton):
-    """ Makes the drive letter buttons Dark Grey.
-    """
-    # def __init__(self, **kwargs):
-    #     super(DarkButton, self).__init__(**kwargs)
+    """ Makes the drive letter buttons Dark Grey."""
 
 
 class Rotaboxer(App):
@@ -2266,12 +2950,11 @@ class Rotaboxer(App):
 def error_print():
     """ Appends the current error to the log text."""
     with open("rotaboxer/err_log.txt", "a", encoding="UTF8") as log:
-        log.write('\nCrash@{}\n'.format(time.strftime("%Y-%m-%d %H:%M:%S")))
+        log.write('\nCrash@{}\n'.format(time.strftime(str("%Y-%m-%d %H:%M:%S"))))
     traceback.print_exc(file=open("rotaboxer/err_log.txt", "a"))
     traceback.print_exc()
 
 
-# if __name__ == '__main__':
 try:
     Rotaboxer().run()
 except Exception:
