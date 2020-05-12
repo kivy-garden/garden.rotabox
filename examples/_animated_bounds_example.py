@@ -34,7 +34,6 @@ Builder.load_string(str('''
         id: slotright
         size: 450, 6
         pos: 430, 120
-
 '''))
 
 

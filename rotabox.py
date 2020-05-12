@@ -275,7 +275,6 @@ Utility interface
 ___________________________________________________________________________
 A Rotabox example can be seen if this module is run directly.
 """
-from functools import partial
 
 __author__ = 'unjuan'
 __version__ = '0.13.0'
@@ -291,7 +290,7 @@ from kivy.graphics.context_instructions import Color
 from kivy.graphics.vertex_instructions import Line
 from kivy.properties import (NumericProperty, ReferenceListProperty,
                              AliasProperty, ObjectProperty, BooleanProperty,
-                             ListProperty, BoundedNumericProperty)
+                             ListProperty, BoundedNumericProperty, partial)
 from math import radians, sin, cos
 import json, sys
 
@@ -1010,7 +1009,7 @@ class Rotabox(Widget):
         Define [custom_bounds] using a rotaboxer's project file.
         To work, [size] should be already defined.
         '''
-        if not self.ready:
+        if not self.prepared:
             Clock.schedule_once(partial(self.read_bounds, filename, True))
             return self.custom_bounds
         try:
