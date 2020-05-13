@@ -359,7 +359,7 @@ class Editor(FloatLayout):
         self.simplicity = 10
         self.ctrl = False
         self.to_transfer = []
-        self.nums_on = True
+        self.nums_on = False
         self.default_color = .29, .518, 1, 1
         self.last_dir = app_config.get('last dir', './')
 

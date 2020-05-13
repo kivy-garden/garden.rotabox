@@ -327,7 +327,6 @@
                 on_active:
                     if self.active: root.nums_on = True
                     else: root.nums_on = False
-                active: True
         BoxLayout:
             spacing: dp(2)
             Button:
@@ -524,7 +523,7 @@
             orientation: 'vertical'
             min: dp(-root.complexity)
             max: dp(0.0)
-            step: 1
+            step: .5
             value: trace_box.thres * -1
             on_value:
                 if not busy.opacity and self.value < dp(0.0): trace_box.thres = self.value * -1
