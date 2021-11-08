@@ -1,7 +1,7 @@
 # coding=utf-8
 
 '''
-                                                                   kivy 1.10.0
+                                                                   kivy 2.0.0
 ROTABOXER
 ______________________________________________________________________________
 
@@ -77,7 +77,7 @@ import time
 import math
 
 __author__ = 'unjuan'
-__version__ = '0.13.0'
+__version__ = '0.13.2'
 
 '''
 The border length of the largest shape that would be considered as noice,
@@ -167,12 +167,12 @@ class Point(ToggleButton):
     picked_line_color = 1.0, 0.7, 0.29, 1
 
     def __init__(self, pol, root, mag, **kwargs):
-        self.root = root
+        self.editor = root
         self.piv_x = self.piv_y = 0
         super(Point, self).__init__(**kwargs)
         self.size = mag * 6, mag * 6
         self.original_size = self.size
-        self.scale = 1.5 / self.root.scat.scale + .1
+        self.scale = 1.5 / self.editor.scat.scale + .1
         self.grabbed = False
         self.popup = None
         self.deselect = False
@@ -214,18 +214,18 @@ class Point(ToggleButton):
 
     def on_press(self, *args):
         self.state = 'down'
-        if (self.root.index != self.pol['btn_points'].index(self)
-                or self.root.pol != self.pol['key']):
-            self.root.pol = str(self.pol['key'])
-            self.root.index = self.pol['btn_points'].index(self)
-            self.root.save_state(motion_end=1)
-            if self.root.to_transfer:
+        if (self.editor.index != self.pol['btn_points'].index(self)
+                or self.editor.pol != self.pol['key']):
+            self.editor.pol = str(self.pol['key'])
+            self.editor.index = self.pol['btn_points'].index(self)
+            self.editor.save_state(motion_end=1)
+            if self.editor.to_transfer:
                 return
-            if not self.root.ordered:
-                for pol in itervalues(self.root.rec[self.root.frame]):
+            if not self.editor.ordered:
+                for pol in itervalues(self.editor.rec[self.editor.frame]):
                     if pol['number'] > self.pol['number']:
                         pol['number'] -= 1
-                self.pol['number'] = len(self.root.rec[self.root.frame]) - 1
+                self.pol['number'] = len(self.editor.rec[self.editor.frame]) - 1
 
     def on_touch_move(self, touch):
         if self.state != 'down':
@@ -241,32 +241,32 @@ class Point(ToggleButton):
 
     def drag(self, *args):
         self.opacity = .3
-        self.pivot = self.root.scat.to_widget(*args[2].pos)
-        self.root.draw()
+        self.pivot = self.editor.scat.to_widget(*args[2].pos)
+        self.editor.draw()
 
     def on_release(self, *args):
         Window.unbind(on_motion=self.drag)
         if self.grabbed:
             self.opacity = 1
-            self.root.save_state(msg=str(self.pol['btn_points'].index(self))
-                                 + '_'
-                                 + str(self.pol['key'])
-                                 + '_'
-                                 + str((round(self.center_x),
+            self.editor.save_state(msg=str(self.pol['btn_points'].index(self))
+                                       + '_'
+                                       + str(self.pol['key'])
+                                       + '_'
+                                       + str((round(self.center_x),
                                         round(self.center_y))),
-                                 motion=1)
+                                   motion=1)
             self.grabbed = False
             Point.busy = False
-            self.root.draw()
+            self.editor.draw()
         elif self.deselect:
-            self.root.deselect_polygon()
+            self.editor.deselect_polygon()
             self.deselect = False
             return
         self.state = 'down'
 
     def adjust_color(self, x, y):
-        if self.root.sprite.collide_point(x, y):
-            image = self.root.sprite.image
+        if self.editor.sprite.collide_point(x, y):
+            image = self.editor.sprite.image
             x, y = x - image.x, y - image.y
             try:
                 back = image._coreimage.read_pixel(x, image.height - y - 1)
@@ -294,22 +294,22 @@ class Point(ToggleButton):
         point_popup = BoxLayout(orientation='vertical')
 
         pick_btn = Button(background_color=(.13, .13, .2, 1),
-                          on_release=partial(self.root.pick_point, self))
+                          on_release=partial(self.editor.pick_point, self))
         pick_btn.text = 'Pick point'
         point_popup.add_widget(pick_btn)
 
         rem_btn = Button(background_color=(.13, .13, .2, 1),
-                         on_release=self.root.remove_point)
+                         on_release=self.editor.remove_point)
         rem_btn.text = 'Remove point'
         point_popup.add_widget(rem_btn)
 
         opn_btn = Button(background_color=(.13, .13, .2, 1),
-                         on_release=self.root.open_polygon)
-        opn_btn.text = self.root.open_btn.text
+                         on_release=self.editor.open_polygon)
+        opn_btn.text = self.editor.open_btn.text
         point_popup.add_widget(opn_btn)
 
         clear_btn = Button(background_color=(.13, .13, .2, 1),
-                           on_release=self.root.remove_polygon)
+                           on_release=self.editor.remove_polygon)
         clear_btn.text = 'Remove polygon'
         point_popup.add_widget(clear_btn)
 
@@ -323,6 +323,13 @@ class Point(ToggleButton):
         if self.popup:
             self.popup.dismiss()
             self.popup = None
+
+
+# todo REMOVE when the issue with uix.Image and keep_data=True is fixed in kivy...
+class KDImage(Image):
+    def __init__(self, **kwargs):
+        super(KDImage, self).__init__(**kwargs)
+        self.texture_update()
 
 
 # noinspection PyArgumentList
@@ -909,7 +916,7 @@ class Editor(FloatLayout):
                 self.frame = self.keys[0]
                 self.sprite.image = Image(source=self.atlas_source)
         else:
-            self.sprite.image = Image(source=self.source, keep_data=True)
+            self.sprite.image = KDImage(source=self.source, keep_data=True)
         self.sprite.add_widget(self.sprite.image)
         self.sprite.image.size = self.sprite.image.texture_size
         self.sprite.size = self.sprite.image.size
@@ -1422,15 +1429,15 @@ class Editor(FloatLayout):
         # ---------------- IF IMAGE IS PRESENT
 
         if key == 270 or key == 61:  # +
-            if self.trace_mode:
-                self.minus_btn.dispatch('on_release')
-            else:
-                self.zoom('in')
+            # if self.trace_mode:
+            #     self.minus_btn.dispatch('on_release')
+            # else:
+            self.zoom('in')
         if key == 269 or key == 45:  # -
-            if self.trace_mode:
-                self.plus_btn.dispatch('on_release')
-            else:
-                self.zoom('out')
+            # if self.trace_mode:
+            #     self.plus_btn.dispatch('on_release')
+            # else:
+            self.zoom('out')
 
         if key == 49:  # 1
             self.set_color((.29, .518, 1, 1))
@@ -2279,8 +2286,8 @@ If not in Windows and the user exits the editor without saving changes (not beca
                         + self.frame + '.' + str(time.time()) + '.png'
         self.sprite.export_to_png(self.temp_img)
 
-        newimage = Image(pos=self.sprite.image.pos, source=self.temp_img,
-                         keep_data=True)
+        newimage = KDImage(pos=self.sprite.image.pos, source=self.temp_img,
+                           keep_data=True)
         self.sprite.remove_widget(self.sprite.image)
         self.sprite.add_widget(newimage)
         self.sprite.image = newimage
