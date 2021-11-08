@@ -66,8 +66,8 @@
     col_prmpt: col_prmpt
     col_back: col_back
     trace_sldr: trace_sldr
-    plus_btn: plus_btn
-    minus_btn: minus_btn
+#    plus_btn: plus_btn
+#    minus_btn: minus_btn
     ok_btn: ok_btn
     abort_btn: abort_btn
     counter: counter
@@ -492,30 +492,30 @@
             id: counter
         Widget:
             size_hint: 1, .1
-        BoxLayout:
-            spacing: dp(2)
-            Button:
-                id: minus_btn
-                group: 'trace'
-                background_color: .13, .13, .2, 1
-                font_size: sp(24)
-                text: '+'
-                on_release:
-                    if not busy.opacity: trace_box.thres -= dp(0.1)
-                    if trace_box.thres < dp(0.0): trace_box.thres = dp(0.0)
-                    if not busy.opacity: root.filter_border(trace_box.thres)
-                disabled: True
-            Button:
-                id: plus_btn
-                group: 'trace'
-                background_color: .13, .13, .2, 1
-                font_size: sp(24)
-                text: '-'
-                on_release:
-                    if not busy.opacity: trace_box.thres += dp(0.1)
-                    if trace_box.thres > dp(root.complexity): trace_box.thres = dp(root.complexity)
-                    if not busy.opacity: root.filter_border(trace_box.thres)
-                disabled: True
+#        BoxLayout:
+#            spacing: dp(2)
+#            Button:
+#                id: minus_btn
+#                group: 'trace'
+#                background_color: .13, .13, .2, 1
+#                font_size: sp(24)
+#                text: '+'
+#                on_release:
+#                    if not busy.opacity: trace_box.thres -= dp(0.1)
+#                    if trace_box.thres < dp(0.0): trace_box.thres = dp(0.0)
+#                    if not busy.opacity: root.filter_border(trace_box.thres)
+#                disabled: True
+#            Button:
+#                id: plus_btn
+#                group: 'trace'
+#                background_color: .13, .13, .2, 1
+#                font_size: sp(24)
+#                text: '-'
+#                on_release:
+#                    if not busy.opacity: trace_box.thres += dp(0.1)
+#                    if trace_box.thres > dp(root.complexity): trace_box.thres = dp(root.complexity)
+#                    if not busy.opacity: root.filter_border(trace_box.thres)
+#                disabled: True
         Slider:
             id: trace_sldr
             size_hint: 1, 7
@@ -523,7 +523,7 @@
             orientation: 'vertical'
             min: dp(-root.complexity)
             max: dp(0.0)
-            step: .5
+            step: .1
             value: trace_box.thres * -1
             on_value:
                 if not busy.opacity and self.value < dp(0.0): trace_box.thres = self.value * -1
