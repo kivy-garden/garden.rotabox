@@ -1,5 +1,24 @@
 
 
+### Rotabox 0.13.3 changes
+
+##### Changed
+* Minor GUI changes in editor.
+
+
+### Rotabox 0.13.2 changes
+
+##### Changed
+* kivy 2.0 compatibility
+* Fixed problem with `Image.keep_data`.
+
+
+### Rotabox 0.13.1 changes
+
+##### Changed
+* Minor corrections and changes.
+
+
 ### Rotabox 0.13.0 changes
 
 ##### Added

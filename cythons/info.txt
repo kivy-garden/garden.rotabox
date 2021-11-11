@@ -1,8 +1,8 @@
-
+﻿
 To compile "cybounds.so" (or "cybounds.pyd" in windows) use the commands below (locally, where "cybounds.c" and "setup.py" files are).
 "setuptools" python package is required.
 
-in linux/macos
+in Linux/MacOS
 $ python setup.py build_ext --inplace
 
 in Windows
