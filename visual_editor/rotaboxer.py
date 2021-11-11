@@ -77,7 +77,7 @@ import time
 import math
 
 __author__ = 'unjuan'
-__version__ = '0.13.3'
+__version__ = '0.13.2'
 
 '''
 The border length of the largest shape that would be considered as noice,
@@ -90,7 +90,7 @@ FILTER_PASSES = 10
 
 
 class Point(ToggleButton):
-
+    # noinspection PyArgumentList
     pivot_bond = ListProperty([.5, .5])
 
     def get_pivot_x(self):
@@ -325,6 +325,14 @@ class Point(ToggleButton):
             self.popup = None
 
 
+# todo REMOVE when the issue with uix.Image and keep_data=True is fixed in kivy...
+class KDImage(Image):
+    def __init__(self, **kwargs):
+        super(KDImage, self).__init__(**kwargs)
+        self.texture_update()
+
+
+# noinspection PyArgumentList
 class Editor(FloatLayout):
 
     def __init__(self, **kwargs):
@@ -908,7 +916,7 @@ class Editor(FloatLayout):
                 self.frame = self.keys[0]
                 self.sprite.image = Image(source=self.atlas_source)
         else:
-            self.sprite.image = Image(keep_data=True, source=self.source)
+            self.sprite.image = KDImage(source=self.source, keep_data=True)
         self.sprite.add_widget(self.sprite.image)
         self.sprite.image.size = self.sprite.image.texture_size
         self.sprite.size = self.sprite.image.size
@@ -2278,8 +2286,8 @@ If not in Windows and the user exits the editor without saving changes (not beca
                         + self.frame + '.' + str(time.time()) + '.png'
         self.sprite.export_to_png(self.temp_img)
 
-        newimage = Image(keep_data=True, pos=self.sprite.image.pos,
-                         source=self.temp_img)
+        newimage = KDImage(pos=self.sprite.image.pos, source=self.temp_img,
+                           keep_data=True)
         self.sprite.remove_widget(self.sprite.image)
         self.sprite.add_widget(newimage)
         self.sprite.image = newimage
@@ -2816,6 +2824,7 @@ class ScrollLabel(ScrollView):
         self.scroll_wheel_distance = dp(50)
 
 
+# noinspection PyIncorrectDocstring
 def folder_sort(files, filesystem):
     """ Sorts the files and folders in the 'File Dialogs' popups.
     Used in the FileChooserListViewX class
@@ -2841,6 +2850,7 @@ def get_win_drives():
         return []
 
 
+# noinspection PyIncorrectDocstring,PyArgumentList
 class LoadDialog(BoxLayout):
     """ 'Load File' popup dialog.
     """
@@ -2874,6 +2884,7 @@ class LoadDialog(BoxLayout):
         self.filechooser.path = selected_drive
 
 
+# noinspection PyIncorrectDocstring,PyArgumentList
 class SaveDialog(BoxLayout):
     """ 'Save File' popup dialog.
     """
