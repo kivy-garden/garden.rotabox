@@ -1,15 +1,16 @@
-﻿
+
 To compile "cybounds.so" (or "cybounds.pyd" in windows) use the commands below (locally, where "cybounds.c" and "setup.py" files are).
 "setuptools" python package is required.
 
 in linux/macos
 $ python setup.py build_ext --inplace
 
-in windows
+in Windows
 $ python setup.py build_ext -i --compiler=msvc
 
-If in windows, "Microsoft Visual C++ 9.0 Compiler for Python 2.7" must be in the system and the "setuptools" version must be at least 6.0.
-A standalone version of the compiler can be found here: http://aka.ms/vcpython27
+Windows dependencies:
+Microsoft Visual C++ 9.0 Compiler for Python 2.7 (or the Microsoft Visual C++ compiler appropriate for your Python version: https://wiki.python.org/moin/WindowsCompilers#Which_Microsoft_Visual_C.2B-.2B-_compiler_to_use_with_a_specific_Python_version_.3F)
+setuptools v6.0+
 
 
 "cybounds.so" (or "cybounds.pyd" in windows) should be put where "rotabox.py" will be.
