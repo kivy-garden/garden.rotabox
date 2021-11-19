@@ -1,9 +1,15 @@
 
-
-### Rotabox 0.13.3 changes
+### Rotabox 0.13.6 changes
 
 ##### Changed
-* Minor GUI changes in editor.
+* `Image.keep_data` fix correction in editor
+
+
+### Rotabox 0.13.4 changes
+
+##### Changed
+* Minor changes in editor and documentation
+* Added a prebuilt module for Python 3.7
 
 
 ### Rotabox 0.13.2 changes
