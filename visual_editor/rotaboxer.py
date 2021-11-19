@@ -908,7 +908,8 @@ class Editor(FloatLayout):
                 self.frame = self.keys[0]
                 self.sprite.image = Image(source=self.atlas_source)
         else:
-            self.sprite.image = Image(keep_data=True, source=self.source)
+            self.sprite.image = Image(source=self.source, keep_data=True)
+            self.sprite.image.texture_update()  # TODO: REMOVE when Image bug is fixed (#7680)
         self.sprite.add_widget(self.sprite.image)
         self.sprite.image.size = self.sprite.image.texture_size
         self.sprite.size = self.sprite.image.size
@@ -2278,8 +2279,10 @@ If not in Windows and the user exits the editor without saving changes (not beca
                         + self.frame + '.' + str(time.time()) + '.png'
         self.sprite.export_to_png(self.temp_img)
 
-        newimage = Image(keep_data=True, pos=self.sprite.image.pos,
-                         source=self.temp_img)
+        newimage = Image(pos=self.sprite.image.pos, source=self.temp_img,
+                         keep_data=True)
+        newimage.texture_update()  # TODO: REMOVE when Image bug is fixed (#7680)
+
         self.sprite.remove_widget(self.sprite.image)
         self.sprite.add_widget(newimage)
         self.sprite.image = newimage
