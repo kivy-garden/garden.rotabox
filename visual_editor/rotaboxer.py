@@ -77,7 +77,7 @@ import time
 import math
 
 __author__ = 'unjuan'
-__version__ = '0.13.3'
+__version__ = '0.13.7'
 
 '''
 The border length of the largest shape that would be considered as noice,

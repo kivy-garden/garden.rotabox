@@ -277,7 +277,7 @@ A Rotabox example can be seen if this module is run directly.
 """
 
 __author__ = 'unjuan'
-__version__ = '0.13.0'
+__version__ = '0.13.7'
 
 __all__ = ('Rotabox', )
 
