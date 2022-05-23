@@ -1,6 +1,6 @@
 
 # Rotabox
-*version 0.13.0 (kivy 1.10.0)*
+*version 0.13.0*
 #### A kivy widget with revolving collision detection, custom bounds and multitouch interactivity.
 
 ![example](examples/example.gif)
@@ -12,6 +12,12 @@ Essentially, it's a widget that, while rotating, is able to track specific point
 
 Rotabox also offers multitouch interactivity (drag, rotation and scaling).
 ___
+### Compatibility
+ python 2.7 + kivy 1.10 - python 3.7 + kivy 2.1
+
+> **Note:** *Rotabox* is being developed on Windows and hasn't been tested on other platforms.
+
+
 ## Features & particularities
 
 ### Collision detection methods
@@ -221,6 +227,7 @@ Most of it is familiar from the Scatter widget.
 **scale_max** *NumericProperty* (1e20)
  Optional scale restrictions.
 
+
+
 _
-> **Note:** *Rotabox* is being developed on Windows and hasn't really been tested on other platforms.
 
